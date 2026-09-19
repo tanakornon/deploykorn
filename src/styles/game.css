@@ -1,0 +1,3186 @@
+/* ==========================================================================
+   Idle game styles.
+
+   This is a PLAIN GLOBAL stylesheet on purpose, not a scoped Astro <style>
+   block. Astro scoping rewrites selectors to `.cls[data-astro-cid-*]`, and
+   the game's rows are created by JavaScript, so elements would never carry
+   the scope attribute and every rule would silently not match.
+
+   Everything is built from the existing tokens, so the game inherits the
+   CV's palette, type scale and hairlines rather than introducing a second
+   visual language.
+
+   The one deliberate exception is the game palette declared immediately
+   below. The CV's rule is "exactly one accent"; a game needs rarity and
+   status to be readable at a glance, so this file adds those hues locally
+   instead of changing the shared tokens.css. tokens.css stays a verbatim
+   copy of the CV's, so the two projects still re-theme as one.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. Game palette
+
+   Rarity hues drive achievement medallions, borders and labels. Status hues
+   are reserved for ready / warning / danger, and the tier ramp tints service
+   medallions by depth. None of these replace the accent; they sit alongside
+   it, and every one of them is paired with text or a glyph so nothing is
+   conveyed by colour alone.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --r-bronze: #c98a4b;
+  --r-bronze-soft: rgba(201, 138, 75, 0.16);
+  --r-silver: #b9c2cc;
+  --r-silver-soft: rgba(185, 194, 204, 0.14);
+  --r-gold: #e8b23c;
+  --r-gold-soft: rgba(232, 178, 60, 0.16);
+  --r-mythic: #b07bff;
+  --r-mythic-soft: rgba(176, 123, 255, 0.18);
+
+  --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+  /* Destructive-action colour, for Unequip and Reset. */
+  --danger: #f87171;
+
+  /* Service tier ramp: each tier of the fleet gets its own hue. */
+  --tier-1: #6ee7d7;
+  --tier-2: #5cc9f5;
+  --tier-3: #7c9dff;
+  --tier-4: #a78bfa;
+  --tier-5: #c084fc;
+  --tier-6: #f472b6;
+  --tier-7: #fb923c;
+  --tier-8: #facc15;
+
+  /*
+     Sizing for repeated small elements.
+
+     `--lh-body: 1.65` is a *paragraph* line-height. Single-line chips, labels
+     and numbers must not inherit it: it adds dead space above and below a
+     one-line element and makes its height depend on a value chosen for prose.
+     Every single-line element sets one of these instead, so two elements with
+     the same role are the same height by construction.
+  */
+  --lh-chip: 1.4;
+  --lh-value: 1.15;
+  --progress-h: 3px;
+  /*
+     Chip geometry is a SPACE value, so it takes the space scale rather than
+     carrying its own literals. These were 0.15rem/0.45rem -- below the scale's
+     0.25rem floor, which is what let the same role drift to 0.14rem/0.44rem
+     and 0.16rem/0.42rem in two other places (see the chip block below).
+  */
+  --chip-pad-y: var(--space-2xs);
+  --chip-pad-x: var(--space-xs);
+  /*
+     A glyph inside a chip or a toast, pinned to the chip's 11px type so it
+     sits on that line box rather than the 20px the element builder defaults
+     to. Not a space value.
+  */
+  --icon-chip: 13px;
+  /*
+     A glyph on a breakdown TERM, matching the labels beside it. Sized to that
+     row's line box (`--fs-label` at `--lh-chip`), not to `--icon-chip`: the
+     breakdown's labels are one notch smaller, so a chip glyph would set the
+     row's height instead of sitting inside it.
+  */
+  --icon-breakdown: 12px;
+
+  /* A soft top-down sheen used on cards and medallions. */
+  --panel-bg: linear-gradient(
+    180deg,
+    rgba(241, 242, 238, 0.045),
+    rgba(241, 242, 238, 0)
+  );
+  --medal-bg: radial-gradient(
+    circle at 32% 28%,
+    rgba(255, 255, 255, 0.24),
+    rgba(255, 255, 255, 0) 64%
+  );
+  --ink: #04120f;
+
+  /*
+     Stat hues. Each readout is recognisable by colour alone, the way an AP
+     or AD number reads instantly in a MOBA without parsing its label. Every
+     one is also labelled in text, so the hue is a reading aid and never the
+     only signal. A chip sets `--stat` and both its glyph and its value
+     inherit it.
+  */
+  --stat-compute: var(--accent);
+  --stat-rate: var(--ok);
+  --stat-click: #fbbf24;
+  --stat-cores: var(--r-mythic);
+  --stat-mult: #7c9dff;
+  --stat-achv: var(--r-gold);
+  /*
+     Reboots are the prestige ACTION count, distinct from the cores they
+     award, so they take their own hue rather than borrowing the violet. The
+     remaining warm rose is the one gap left in the set: compute is teal,
+     rate green, click amber, cores violet, multiplier blue, achievements
+     gold and shards cyan.
+  */
+  --stat-reboots: #f472b6;
+  /*
+     The fleet total -- units deployed across every tier. Orange, which is the
+     gap between the amber of a click and the rose of a reboot, and the only
+     chromatic family the eight above leave unclaimed.
+  */
+  --stat-fleet: #fb923c;
+  /*
+     Contracts and away time. Two hues rather than borrowing an existing one:
+     a contract is an OBJECT (work, pay, slots) and away time is a RESOURCE
+     the player spends by leaving, so neither is a restatement of compute even
+     though both eventually pay in it.
+  */
+  --stat-contract: #a3e635;
+  --stat-away: #94a3b8;
+  /*
+     A first-class token for the shards currency, so the price treatment and
+     the stat hue share one source. Cyan, because it has to be distinct from
+     the accent green (compute), the gold of a rarity, the amber of a click
+     and the violet of a core.
+  */
+  --shard: #67e8f9;
+  --stat-shards: var(--shard);
+}
+
+/* --------------------------------------------------------------------------
+   1. Page frame
+   -------------------------------------------------------------------------- */
+
+.game {
+  padding-block: clamp(var(--space-xl), var(--space-md) + 4vw, var(--space-3xl))
+    var(--section-gap);
+}
+
+.game__head {
+  max-width: 62ch;
+}
+
+.game__title {
+  margin-top: var(--space-md);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-medium);
+  line-height: 1.08;
+  letter-spacing: var(--ls-heading);
+}
+
+.game__intro {
+  margin-top: var(--space-md);
+  color: var(--fg-muted);
+}
+
+/* --------------------------------------------------------------------------
+   2. Messages: save problems and the offline summary
+   -------------------------------------------------------------------------- */
+
+.game__status {
+  margin-top: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border: var(--hairline) solid var(--rule-strong);
+  border-left: var(--hairline-accent) solid var(--fg-muted);
+  font-size: var(--fs-small);
+  color: var(--fg-muted);
+}
+
+.game__banner {
+  margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  border: var(--hairline) solid var(--rule-accent);
+  border-left: var(--hairline-accent) solid var(--accent);
+}
+
+.game__banner[hidden] {
+  display: none;
+}
+
+.game__banner-text {
+  color: var(--fg);
+}
+
+.game__banner-text strong {
+  color: var(--accent);
+  font-weight: var(--fw-medium);
+}
+
+.game__banner-actions {
+  margin-top: var(--space-md);
+}
+
+/* --------------------------------------------------------------------------
+   Toasts
+
+   Visual announcements of discrete events, mirroring the accessible live
+   region. Fixed, so a toast never shifts the page, and pointer-events-free so
+   it can never eat a click meant for the game underneath.
+
+   The region is `aria-hidden` in the markup: the live region already speaks
+   these, and a second live node would read every event twice.
+   -------------------------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: grid;
+  gap: var(--space-sm);
+  /* Never wider than the viewport, or a long reward line would overflow the
+     page and fail the zero-overflow rule at 320px. */
+  width: min(30rem, calc(100vw - 2 * var(--space-md)));
+  pointer-events: none;
+}
+
+.toast {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--rule-accent);
+  border-left: var(--hairline-accent) solid var(--accent);
+  /*
+     A solid raised surface, not a shadow. The whole game is flat borders on
+     flat fills and a drop shadow here would be the only one in it; the
+     `--bg-raised` tone is what already separates a surface from the page.
+  */
+  background-color: var(--bg-raised);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  /* Opacity and transform only, so a toast cannot cost layout. */
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.toast--in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/*
+   An achievement unlock names a CARD, so it wears that card's identity: its
+   own glyph, its rarity hue, and the rarity word.
+
+   The hue comes from the existing `.achievement--<rarity>` classes rather than
+   from a second set of colours here. Those classes declare only `--r` and
+   `--r-soft`, so borrowing one costs nothing and cannot drift from the card --
+   which is the same reason the rarity ramp is a class and not an inline custom
+   property (see the note above those classes: an inline value does not
+   recompute when print collapses the ramp).
+*/
+.toast__achv {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  /* Matches the surrounding line box, as the chips do. */
+  vertical-align: middle;
+  color: var(--r, var(--r-bronze));
+  font-weight: var(--fw-semibold);
+}
+
+/*
+   TWO classes, not one, and the second is load-bearing: `.glyph` sets
+   `color: var(--fg-faint)` and appears LATER in this sheet, so at equal
+   specificity it wins and renders the icon grey beside bronze text. Re-stating
+   the colour here beats it.
+
+   `currentColor` reads the hue from `.toast__achv` above, so the hue is
+   declared once for the whole chip.
+*/
+.toast__achv .toast__achv-icon {
+  flex: none;
+  width: var(--icon-chip);
+  height: var(--icon-chip);
+  color: currentColor;
+}
+
+/* The word is load-bearing, not a label: it is how rarity reads without
+   colour. Kept quieter than the name so the card's TITLE still leads. */
+.toast__achv-rarity {
+  font-size: 0.85em;
+  font-weight: var(--fw-regular);
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+}
+
+/* --------------------------------------------------------------------------
+   3. Stat readouts
+
+   Six equal cells in one row read like a table, and gave the number the
+   player watches no more weight than "From achievements". There is now one
+   hero readout plus a compact supporting grid. Each chip sets `--stat`,
+   which colours both its glyph and its value, so a number is identifiable
+   by hue before its label is read.
+   -------------------------------------------------------------------------- */
+
+.game__stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  margin-top: var(--space-2xl);
+}
+
+/* --- Hero: the number the player watches above all others. ---------------- */
+
+.game-stat--hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  padding: var(--space-lg);
+  border: var(--hairline) solid var(--rule);
+  border-left: var(--hairline-accent) solid var(--stat, var(--accent));
+  background-image: var(--panel-bg);
+  min-width: 0;
+}
+
+.game-stat--hero .game-stat__value {
+  font-size: clamp(1.9rem, 1.2rem + 3.4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/*
+   The income line under the hero number. Stacked into two rows -- icon and
+   label above, figure below -- so the icon centres on the label rather than
+   on the taller value's line box.
+*/
+.game-stat__flow {
+  display: grid;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
+  min-width: 0;
+}
+
+/* The metric line: an icon and the word it names, centred on each other.
+   Same gap as `.game-stat__head`, so all eight headers space identically. */
+.game-stat__flow-metric {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.game-stat__flow-icon {
+  flex: none;
+  color: var(--stat-rate);
+}
+
+/* No type rules here: the label carries the shared `.label` class. The class
+   is kept as a hook so a rule can target this label without re-declaring it. */
+
+/*
+   Sized to sit between the hero number and the supporting grid, so the rate
+   the player watches outranks the figures it summarises.
+*/
+.game-stat__flow-value {
+  font-family: var(--font-mono);
+  font-size: clamp(1.25rem, 1rem + 1.15vw, 2rem);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-value);
+  color: var(--stat-rate);
+}
+
+/* --- Supporting grid ----------------------------------------------------- */
+
+.game__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md) var(--space-lg);
+  padding-block: var(--space-md);
+  border-block: var(--hairline) solid var(--rule);
+}
+
+.game-stat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.game-stat__value {
+  font-family: var(--font-mono);
+  font-size: clamp(1.05rem, 0.9rem + 0.7vw, 1.5rem);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-value);
+  /* Set per chip; falls back to plain text if a chip ever forgets. */
+  color: var(--stat, var(--fg));
+  overflow-wrap: anywhere;
+}
+
+/*
+   A third line inside a chip: what the number is WORTH, rather than another
+   number. It takes the chip's own hue rather than the muted faint grey a
+   caption would, because it is part of the readout -- "10 cores" and "+50%
+   production" are one fact in two halves. Only the cores chip uses it today,
+   since it is the only stat whose effect is a rate the player has to be told.
+*/
+.game-stat__note {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  color: var(--stat, var(--fg-muted));
+}
+
+@media (min-width: 60rem) {
+  /* Hero and supporting numbers sit side by side, divided by a rule rather
+     than a gap, so the relationship between them reads. */
+  .game__stats {
+    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .game__stats-grid {
+    align-content: center;
+    border-block: 0;
+    border-left: var(--hairline) solid var(--rule);
+    padding-block: 0;
+    padding-left: var(--space-xl);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. Deploy button
+   -------------------------------------------------------------------------- */
+
+.game__deploy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  width: 100%;
+  /* The positioning context for the floating numbers, which travel past the
+     button's top edge and must be placed against it rather than the page. */
+  position: relative;
+  margin-top: var(--space-xl);
+  padding: clamp(var(--space-md), var(--space-sm) + 1.4vw, var(--space-lg))
+    var(--space-lg);
+  border: var(--hairline) solid var(--accent);
+  background-color: transparent;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.game__deploy:hover,
+.game__deploy:focus-visible {
+  background-color: rgba(45, 212, 191, 0.08);
+}
+
+.game__deploy-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+.game__deploy-value {
+  font-family: var(--font-mono);
+  font-size: clamp(0.9rem, 0.85rem + 0.4vw, 1.05rem);
+  /* A single-line readout, so it must not inherit the paragraph line-height
+     (1.65) -- that adds dead space above and below and makes the button's
+     height depend on a value chosen for prose. Same rule as every other
+     one-line element; see the sizing notes at the top of the file. */
+  line-height: var(--lh-value);
+  color: var(--fg-muted);
+}
+
+/* Brief acknowledgement that the click registered. */
+.game__deploy.is-fired {
+  background-color: rgba(45, 212, 191, 0.16);
+}
+
+/*
+   The floating deploy number.
+
+   ONE PER CLICK, and it is the feedback the core loop never had: the compute
+   gain changed a readout elsewhere on the page and changed nothing at the
+   point of action, so the most frequent thing a player does produced no visual
+   event at all. The number is the fastest possible confirmation both that the
+   click registered and what it was worth.
+
+   The layer covers the button and is `pointer-events: none`, because it sits
+   directly over the control that spawned it and would otherwise swallow the
+   next click. `overflow` is deliberately NOT hidden: the number travels past
+   the top edge, and clipping would cut the animation off mid-flight.
+*/
+.game__deploy-floats {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.game__deploy-float {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-chip);
+  font-weight: var(--fw-medium);
+  /* The compute concept's own hue, so the number reads as compute without
+     being labelled -- the same identity the stat chip and the button's own
+     readout already carry. */
+  color: var(--stat-compute, var(--accent));
+  white-space: nowrap;
+  /* Centred on the point clicked, so one rule covers either edge. The
+     horizontal half of this is preserved in every keyframe below. */
+  transform: translate(-50%, 0);
+  /*
+     ONLY `opacity` and `transform`. Both are composited, so a burst of these
+     cannot trigger layout or paint on the 10Hz render path, and neither can
+     widen the document -- which matters because the layer overflows the button
+     by design.
+  */
+  animation: deploy-float 900ms var(--ease) forwards;
+}
+
+@keyframes deploy-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0.4rem);
+  }
+  /* Rises and fades in quickly, then eases away: the figure has to be legible
+     at a glance rather than only at the end of its travel. */
+  22% {
+    opacity: 1;
+    transform: translate(-50%, -0.3rem);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -2.4rem);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Abilities (the active buttons)
+
+   One card per ability in ABILITIES. Locked ones stay on screen so the player
+   can see what exists and what unlocks it; the button is genuinely disabled.
+   -------------------------------------------------------------------------- */
+
+.abilities {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.ability {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border: var(--hairline) solid var(--rule);
+  border-left: var(--hairline-accent) solid var(--rule-strong);
+  background-image: var(--panel-bg);
+  min-width: 0;
+  transition:
+    border-left-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+/* Only the accent rail and a faint wash change on activation, so the row
+   never reflows as the state toggles. */
+.ability.is-active {
+  border-left-color: var(--accent);
+  background-color: rgba(45, 212, 191, 0.07);
+}
+
+.ability--ready {
+  border-left-color: var(--ok);
+}
+
+.ability--locked {
+  border-left-color: var(--rule);
+  border-style: dashed;
+}
+
+.ability__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: var(--hairline) solid var(--rule-strong);
+  background-image: var(--medal-bg);
+  color: var(--fg-faint);
+  transition: color var(--dur) var(--ease);
+}
+
+.ability--ready .ability__icon {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.ability.is-active .ability__icon {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ability__body {
+  display: grid;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.ability__name {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+}
+
+.ability--locked .ability__name {
+  color: var(--fg-faint);
+}
+
+.ability__timer {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+
+.ability__state {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.ability--ready .ability__state {
+  color: var(--ok);
+}
+
+.ability.is-active .ability__state {
+  color: var(--accent);
+}
+
+/* Cooldown / remaining-time rule. Purely reinforcement: the same value is
+   always written out as text beside it. */
+.ability__track {
+  display: block;
+  position: relative;
+  margin-top: var(--space-2xs);
+  background-color: var(--rule);
+  overflow: hidden;
+}
+
+.ability__bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background-color: var(--fg-faint);
+  transition: width var(--dur) var(--ease);
+}
+
+.ability.is-active .ability__bar {
+  background-color: var(--accent);
+}
+
+.ability--ready .ability__bar {
+  background-color: var(--ok);
+}
+
+.ability__button {
+  justify-self: end;
+}
+
+/* --------------------------------------------------------------------------
+   5b. Purchase quantity toggle
+   -------------------------------------------------------------------------- */
+
+.game__qty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.game__qty-label {
+  margin-right: var(--space-xs);
+}
+
+.game__qty-btn {
+  min-width: 3.5rem;
+  /*
+     Same padding as `.game-btn`, so every button in the game is the same
+     height. Both read the same two space tokens rather than repeating a
+     literal, so they cannot drift apart again.
+  */
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid var(--rule-strong);
+  background-color: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.game__qty-btn:hover,
+.game__qty-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.game__qty-btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  background-color: rgba(45, 212, 191, 0.12);
+  color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   6. Sections
+   -------------------------------------------------------------------------- */
+
+.game__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.game__section-title {
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-medium);
+  /*
+     The panel heading matches its tab, so arriving at a panel confirms which
+     one it is before the text is read. `--tab-hue` is set on the PANEL; a panel
+     without one keeps the inherited colour, since `color` is an inherited
+     property and a `var()` with no fallback resolves to `unset`.
+  */
+  color: var(--tab-hue);
+}
+
+/*
+   Every panel shows its title, then its stat lines, so the placement is the
+   same across tabs. `.game__panel-stat` is not hidden in print, so the
+   achievement rarity mix prints too.
+*/
+.game__panel-stats {
+  display: grid;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-lg);
+  min-width: 0;
+}
+
+.game__panel-stat {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  letter-spacing: var(--ls-label);
+  line-height: var(--lh-chip);
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.game__empty {
+  padding-block: var(--space-lg);
+  border-top: var(--hairline) solid var(--rule);
+  color: var(--fg-muted);
+  font-size: var(--fs-small);
+}
+
+/* Explanatory line under a section heading. */
+.game__hint {
+  max-width: 68ch;
+  margin-bottom: var(--space-lg);
+  font-size: var(--fs-small);
+  line-height: 1.6;
+  color: var(--fg-faint);
+}
+
+/* Reboot is the one panel with no stat line -- its figures live in the
+   Reboot card -- so the title keeps the larger gap straight to its content
+   rather than closing up to where a stat line would have been. */
+#panel-reboot .game__section-head {
+  margin-bottom: var(--space-lg);
+}
+
+/* Shared class for every line glyph built in icons.ts. */
+.glyph {
+  flex: none;
+  color: var(--fg-faint);
+  transition: color var(--dur) var(--ease);
+}
+
+/*
+   Do not set a glyph colour here: it outranks `.medal svg` and flattens every
+   rarity, tier and status tint back to one accent.
+*/
+
+/* --------------------------------------------------------------------------
+   7. Service rows
+   -------------------------------------------------------------------------- */
+
+.services {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-bottom: var(--hairline) solid var(--rule);
+}
+
+.service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm) var(--space-lg);
+  padding-block: var(--space-lg);
+  border-top: var(--hairline) solid var(--rule);
+  /* The rail carries the tier hue once the tier is live. Transparent when
+     idle, so the row never shifts as it activates. */
+  border-left: var(--hairline-accent) solid transparent;
+  /*
+     The floor is the space scale's `xs`, not zero. At 320px the fluid term
+     resolves to 4.6px, which left the text almost touching the tier rail and
+     so little inset that a nested upgrade row (inset by its own border-left)
+     read as the same left edge. 8px holds on the narrowest phone.
+  */
+  padding-inline: clamp(var(--space-xs), 1.5vw, var(--space-sm));
+  transition: border-left-color var(--dur) var(--ease);
+  min-width: 0;
+}
+
+.service--active {
+  border-left-color: var(--tier, var(--accent));
+}
+
+/*
+   One hue per service tier, by class. The ramp itself lives in the palette
+   above; this only maps a row to its step. Print collapses the whole ramp at
+   :root, which then flows through here. Do not replace these with an inline
+   `--tier: var(--tier-N)`: an inline custom property referencing another one
+   does not reliably recompute when the print media query changes the target.
+*/
+.service--tier-1 {
+  --tier: var(--tier-1);
+}
+
+.service--tier-2 {
+  --tier: var(--tier-2);
+}
+
+.service--tier-3 {
+  --tier: var(--tier-3);
+}
+
+.service--tier-4 {
+  --tier: var(--tier-4);
+}
+
+.service--tier-5 {
+  --tier: var(--tier-5);
+}
+
+.service--tier-6 {
+  --tier: var(--tier-6);
+}
+
+.service--tier-7 {
+  --tier: var(--tier-7);
+}
+
+.service--tier-8 {
+  --tier: var(--tier-8);
+}
+
+.service__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+/* Icon and name on one row, so the name can never wrap beneath the glyph. */
+.service__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/*
+   Thin-stroke glyph, matching the site's ArrowIcon: no fill, square caps.
+
+   The HUE comes from `.medal`, not from here. `.medal svg { color: inherit }`
+   is more specific than a bare `.service__icon`, so anything declared here is
+   overridden -- which is why the `--active` variant that used to sit below
+   this was unreachable: `.medal--quiet` already carries the idle/active
+   distinction in one place.
+*/
+.service__icon {
+  flex: none;
+  transition: color var(--dur) var(--ease);
+}
+
+.service__name {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+  min-width: 0;
+}
+
+.service__blurb {
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+/* --- Supporting numbers -------------------------------------------------- */
+
+.service__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-lg);
+}
+
+.service__fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+/*
+   Fact hues by class, not an inline `--fact: var(--fg)`. An inline custom
+   property that references another custom property does not reliably
+   recompute when a media query changes that token, which left these values
+   in their screen colours on paper.
+*/
+.service__fact--owned {
+  --fact: var(--fg);
+}
+
+.service__fact--share {
+  --fact: var(--stat-mult);
+}
+
+.service__fact--milestone {
+  --fact: var(--ok);
+}
+
+.service__fact-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-value);
+  /* Set per fact; falls back to plain text if one ever forgets. */
+  color: var(--fact, var(--fg));
+}
+
+/* The captions are supporting text, so they sit a step quieter than the
+   values they describe. */
+.service__fact-label {
+  font-size: 0.625rem;
+  line-height: var(--lh-chip);
+  color: var(--fg-faint);
+}
+
+/* --- Output: the tier's headline number ---------------------------------- */
+
+.service__output {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.service__output-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.service__output-value {
+  font-family: var(--font-mono);
+  font-size: clamp(1.2rem, 1rem + 1vw, 1.75rem);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-value);
+  color: var(--tier, var(--fg));
+  /* A pathological number wraps rather than overflowing the column. */
+  overflow-wrap: anywhere;
+}
+
+/* A tier that is not deployed yet must not show its zero in the tier hue,
+   which would read as though it were already producing. */
+.service__output-value--idle {
+  color: var(--fg-faint);
+}
+
+.service__action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.service__cost {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* Unaffordable rows stay readable: the button is simply disabled and the
+   cost is muted. Nothing is conveyed by colour alone. */
+.service__buy[disabled] {
+  border-color: var(--rule);
+  color: var(--fg-faint);
+  cursor: not-allowed;
+}
+
+.service__buy[disabled]:hover {
+  border-color: var(--rule);
+  color: var(--fg-faint);
+  background-color: transparent;
+}
+
+@media (min-width: 48rem) {
+  .service {
+    /*
+     * The middle column is fixed rather than `auto`, so every row's headline
+     * number right-aligns at the same x and the figures read as one column
+     * down the list. 11rem clears the widest realistic rate.
+     */
+    grid-template-columns: minmax(0, 1fr) 11rem 10rem;
+    align-items: center;
+  }
+
+  /* Right-aligned on wide screens: the headline number reads as a column of
+     its own against the description text. */
+  .service__output {
+    justify-items: end;
+    text-align: right;
+  }
+
+  .service__action {
+    justify-content: flex-end;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. Contracts
+   -------------------------------------------------------------------------- */
+
+.contracts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-bottom: var(--hairline) solid var(--rule);
+}
+
+.contract {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  padding-block: var(--space-lg);
+  border-top: var(--hairline) solid var(--rule);
+  border-left: var(--hairline-accent) solid transparent;
+  padding-inline: clamp(0rem, 1.5vw, var(--space-sm));
+  /* Same reasoning as the achievement card: stretch the card, not its rows. */
+  align-content: start;
+  transition:
+    border-left-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+  min-width: 0;
+}
+
+.contract--complete {
+  border-left-color: var(--accent);
+  background-color: var(--bg-raised);
+}
+
+.contract__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.contract__name {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+}
+
+/*
+   The objective -- the actual number the contract wants. It leads, and the
+   blurb follows it in the muted caption colour.
+
+   The order is deliberate and it is the reverse of the old card, which opened
+   with a sentence that CONTAINED the number ("Earn 5,000 more shards"). The
+   objective is now computed at issue time, so it cannot be part of a sentence
+   authored in the content table -- and once it is its own element it may as
+   well be the first thing read, because it is the only part of the card the
+   player has to act on. The blurb is flavour and now sits where flavour
+   belongs.
+*/
+.contract__objective {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.contract__blurb {
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+@media (min-width: 48rem) {
+  .contracts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: var(--space-xl);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. Upgrades
+
+   Filed into themed groups, like achievements. Each card carries a category
+   rail and medallion, an effect badge beside the name, and an affordable
+   state on the cost. The badge is the real headline: it is what two upgrades
+   are compared on, so it is not left buried in the description.
+   -------------------------------------------------------------------------- */
+
+.upgrade-groups {
+  display: grid;
+  gap: var(--space-xl);
+}
+
+.upgrade-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm) var(--space-md);
+  padding-bottom: var(--space-xs);
+  border-bottom: var(--hairline) solid var(--rule-strong);
+}
+/*
+   The heading glyph for an upgrade GROUP (not a panel heading -- those carry
+   no icon, so every panel reads the same). Sized to the label rather than the
+   20px the element builder defaults to, and centred against the row, which is
+   `align-items: baseline` and would otherwise sit the glyph low. The hue comes
+   from `--concept`, set by the `concept--<id>` class the caller adds.
+*/
+.upgrade-group__icon {
+  flex: none;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  color: var(--concept, currentColor);
+}
+
+.upgrade-group__title {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+}
+
+.upgrade-group__count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.08em;
+  color: var(--fg-faint);
+}
+
+.upgrade-group__blurb {
+  flex-basis: 100%;
+  font-size: var(--fs-small);
+  color: var(--fg-faint);
+}
+
+.upgrades {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/*
+   Two columns, not three: medal, then everything else. The action starts life
+   on a second row (see `.upgrade__action` below) and only takes a column of
+   its own from 48rem up.
+
+   This is not cosmetic. The action's widest child -- a price like "Cost 100
+   shards" -- is `nowrap`, so an `auto` third column is sized to its max-content
+   and cannot shrink. On a 320px screen a service's nested row is only 246px
+   wide, and the medal (30.4px) plus two column gaps (32px) plus the padding
+   (32px) leave the action 149.6px. That is enough for the third column but not
+   for the middle one, which collapsed to 0px and let the effect badge bleed
+   sideways over the price. Giving the action its own row removes the
+   competition for width entirely.
+*/
+.upgrade {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  /*
+     Start, not center: the medallion marks the row, so it belongs on the
+     first line beside the name rather than floating in the middle of the
+     text block. Centre only re-entered the picture once the action column
+     moved to its own row on narrow screens -- a centred medallion then sat
+     86px down a 291px row at 320px. The action re-centres itself from 48rem.
+  */
+  align-items: start;
+  gap: var(--space-sm) var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  /*
+     UNOWNED IS THE RESTING STATE: a plain rule, no category colour, no sheen.
+     `.upgrade--owned` below switches the colour and the fill on.
+
+     These three declarations used to live in a SECOND `.upgrade` block 85
+     lines further down, which outranks this one and made the colour and
+     `--panel-bg` here dead. They are folded in so there is exactly one rule
+     for the row's resting appearance. The accent hairline WIDTH is kept --
+     only its colour changes while unowned.
+  */
+  border: var(--hairline) solid var(--rule);
+  border-left: var(--hairline-accent) solid var(--rule-strong);
+  background-image: none;
+  min-width: 0;
+  transition:
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+/*
+   Category hues by class. A class rather than an inline `--up-group:
+   var(--x)`, for the same reason as the stat chips and service tiers: an
+   inline custom property that references another one does not reliably
+   recompute when a media query changes the target, so print could not
+   collapse it.
+*/
+.upgrade--deploys {
+  --up-group: var(--stat-click);
+}
+
+/*
+   A tier upgrade nested in a service card. `serviceMult` is its own group,
+   and these only ever appear inside a service, so they take that service's
+   tier hue instead of a category colour. That visually ties the two together.
+*/
+.upgrade--services {
+  --up-group: var(--tier, var(--accent));
+}
+
+.upgrade--global {
+  --up-group: var(--stat-mult);
+}
+
+/*
+   The reserve group is about what held shards produce -- two of its three rows
+   are shard-facing (`shardGain`, `reserveBonus`) and the third (`coreAmplify`)
+   multiplies that same figure. It takes the shards hue so the rail, the owned
+   border and the medallion agree with the shard chips inside.
+
+   This class was MISSING, and the failure was silent: `describeEffect()` files
+   rows here and `ui.ts` builds them as `upgrade--reserve`, so every reserve row
+   fell through to `var(--up-group, ...)` and painted in the generic accent.
+*/
+.upgrade--reserve {
+  --up-group: var(--stat-shards);
+}
+
+.upgrade--automation {
+  --up-group: var(--r-mythic);
+}
+
+.upgrade--offline {
+  --up-group: var(--accent);
+}
+
+/*
+   Affordability. The enabled button and a brighter cost carry this; the row
+   does not change colour, because colour is reserved for owned-ness below.
+*/
+.upgrade--affordable {
+  background-color: var(--bg-raised);
+}
+
+/*
+   Owned is the activated state: the row lights up in its OWN colour, from
+   `--up-group` (a category hue in the shop, the service's tier hue when
+   nested). An unowned upgrade sits dark: plain rule, no colour, faint glyph.
+
+   This is deliberately not green. Green means "ready to use" elsewhere in the
+   game (a ready ability, a completed contract); an upgrade's identity is its
+   category, so owning it is better shown by switching that colour on.
+*/
+.upgrade--owned {
+  border-color: var(--up-group, var(--accent));
+  border-left-color: var(--up-group, var(--accent));
+  background-color: color-mix(in srgb, var(--up-group, var(--accent)) 9%, transparent);
+}
+
+.upgrade__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.upgrade__name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-xs);
+  min-width: 0;
+}
+
+/* Dark until owned, bright once it is. */
+.upgrade__name {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg-muted);
+}
+
+.upgrade--owned .upgrade__name {
+  color: var(--fg);
+}
+
+/*
+   The effect badge: the number the purchase is actually about. Faint while
+   unowned, then it takes the row's colour, so the badge doubles as part of
+   the activated look.
+*/
+.upgrade__effect {
+  color: var(--fg-faint);
+}
+
+.upgrade--owned .upgrade__effect {
+  border-color: var(--up-group, var(--accent));
+  color: var(--up-group, var(--accent));
+}
+
+.upgrade__blurb {
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--fg-faint);
+}
+
+.upgrade--owned .upgrade__blurb {
+  color: var(--fg-muted);
+}
+
+.upgrade__action {
+  /* Row two, in line with the name rather than under the medal. */
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.upgrade__cost {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+/* Affordable: brighter, so the price is the thing that reads. */
+.upgrade--affordable .upgrade__cost {
+  color: var(--concept, var(--fg));
+}
+
+/*
+   A shard price. The colour comes from the SHARDS CONCEPT rather than a
+   separate `.cost--shard` hue, so the price and the shard glyph beside it are
+   guaranteed to be the same cyan -- a second declaration would drift the
+   moment either changed. The currency is always named in the chip's own text
+   too, so it never rests on colour alone.
+*/
+.cost--shard {
+  color: var(--concept, var(--shard));
+}
+
+.upgrade__owned {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  /* One word on one line: `--lh-chip`, not the inherited paragraph 1.65. */
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--up-group, var(--accent));
+}
+
+@media (min-width: 48rem) {
+  /* Wide enough for the price to sit beside the text again. */
+  .upgrade {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .upgrade__action {
+    grid-column: auto;
+    justify-content: flex-end;
+    /* Shares the text's row again, so it centres against the paragraph
+       rather than hanging off the top of it. */
+    align-self: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9b. A service's own upgrades
+
+   Nested inside the service card, inset and a step quieter than the service
+   itself, so the tier reads as the subject and these as what you can do to it.
+   The inner class names are the same ones the shop rows use; only the root
+   class and the sizes differ, so the two stays in step.
+   -------------------------------------------------------------------------- */
+
+.service__upgrades {
+  /* Spans the whole card, under the description/output/action columns. */
+  grid-column: 1 / -1;
+  margin-top: var(--space-xs);
+  padding-left: clamp(0rem, 2vw, var(--space-lg));
+  border-left: var(--hairline) solid var(--rule);
+}
+
+.service__upgrades[hidden] {
+  display: none;
+}
+
+.service__upgrades-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.service-upgrades {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+/*
+   The nested rows reuse the shop's inner classes, so only the root differs.
+   Note there is deliberately no `border-left-color` here: `.upgrade` already
+   takes it from `--up-group`, which is the tier hue for these. Setting it here
+   would outrank `.upgrade--owned` (two classes beat one) and an owned tier
+   upgrade would keep a coloured rail while the rest of its border went green.
+*/
+.service__upgrades .upgrade {
+  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-xs) var(--space-md);
+}
+
+.service__upgrades .upgrade__medal {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.service__upgrades .upgrade__name {
+  font-size: var(--fs-small);
+}
+
+.service__upgrades .upgrade__blurb {
+  font-size: 0.8125rem;
+}
+
+/* --------------------------------------------------------------------------
+   9. Reboot panel
+   -------------------------------------------------------------------------- */
+
+.reboot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  border: var(--hairline) solid var(--rule);
+  border-left: var(--hairline-accent) solid var(--rule-strong);
+  min-width: 0;
+}
+
+.reboot__text {
+  color: var(--fg-muted);
+  font-size: var(--fs-small);
+  line-height: 1.6;
+}
+
+/*
+   Equal columns, so the four facts read as a table of figures rather than
+   reflowing unevenly on text width.
+*/
+.reboot__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-md);
+}
+
+/* The label and its rule are one object, so they are spaced tightly together
+   rather than by the card's own gap. */
+.reboot__progress {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.reboot__fact {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+/*
+   Each fact carries the hue of the concept its NUMBER belongs to -- cores for
+   the two core figures, compute for the threshold, reboots for the count --
+   and the glyph, the value and the note above it all read from that one
+   property, so a fact cannot end up with a violet glyph over a teal number.
+   The caption stays plain: colouring it too would have four captions competing
+   instead of four figures grouping.
+*/
+.reboot__fact--cores {
+  --fact-hue: var(--stat-cores);
+}
+
+.reboot__fact--compute {
+  --fact-hue: var(--stat-compute);
+}
+
+.reboot__fact--reboots {
+  --fact-hue: var(--stat-reboots);
+}
+
+.reboot__fact-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.reboot__fact-icon {
+  flex: none;
+  color: var(--fact-hue, var(--fg-muted));
+}
+
+.reboot__fact-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-value);
+  color: var(--fact-hue, var(--fg));
+}
+
+/* What the figure is worth, under the figure. */
+.reboot__fact-note {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  color: var(--fact-hue, var(--fg-muted));
+}
+
+.reboot__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+/* Ready is a state of the whole card: the border, the rule and the chip all
+   move together, and the chip is the one that says it in words. */
+.reboot--ready {
+  border-left-color: var(--accent);
+}
+
+/*
+   A four-cell row of figures and a lone button do not make a two-column
+   layout -- the button was centred against a tall block and read as belonging
+   to nothing. The card is one column at every width; the action sits on its
+   own line under the rule it acts on, aligned to the end.
+*/
+/* --------------------------------------------------------------------------
+   10. Achievements
+   -------------------------------------------------------------------------- */
+
+/*
+   ONE block. This used to be declared twice, 900 lines apart, and the second
+   one won: it killed the `border-bottom` set here (so that hairline was dead
+   CSS) and re-set the gap. Merged into the single effective rule, so there is
+   no declaration below that silently outranks one above.
+*/
+.achievements {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.achievement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2xs);
+  padding-block: var(--space-md);
+  border-top: var(--hairline) solid var(--rule);
+  min-width: 0;
+}
+
+/*
+   Centre, not baseline. The medallion is a fixed-size grid box with no text,
+   so `baseline` falls back to aligning its bottom edge to the text baseline
+   and pushes it up out of line. Centre also keeps it balanced when a long
+   name makes the title block two lines.
+*/
+.achievement__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/*
+   The name sits on its own line with the rarity badge beneath it, rather than
+   beside it. Inline, the two competed for one narrow column: the badge could
+   push a long name onto a second line, and the two together read as a single
+   cramped string. Stacked, the name gets the whole column and the badge reads
+   as a classification of the card rather than part of its title.
+*/
+.achievement__title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.achievement__name {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg-faint);
+}
+
+/* Bright once unlocked, matching the "switched on" treatment. */
+.achievement:not(.achievement--locked) .achievement__name {
+  color: var(--fg);
+}
+
+/*
+   Tier is spelled out as text, so it survives greyscale and colour-vision
+   differences. The tier *also* changes the glyph stroke weight via JS, so
+   rarity is legible with colour ignored entirely. Geometry is shared; see
+   the chips section.
+*/
+.achievement__tier {
+  color: var(--fg-muted);
+}
+/*
+   The rarity word is a fact about the card, so it keeps its rarity colour
+   whether or not the card is unlocked -- it is the target you are working
+   towards. Only the border follows the unlocked state, so a locked card still
+   reads as dark and neutral overall.
+*/
+.achievement__tier--bronze {
+  color: var(--r-bronze);
+}
+
+.achievement__tier--silver {
+  color: var(--r-silver);
+}
+
+.achievement__tier--gold {
+  color: var(--r-gold);
+}
+
+.achievement__tier--mythic {
+  color: var(--r-mythic);
+}
+
+.achievement:not(.achievement--locked) .achievement__tier {
+  border-color: var(--r, var(--r-bronze));
+}
+
+.achievement__blurb {
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--fg-faint);
+  margin-top: var(--space-2xs);
+}
+
+.achievement:not(.achievement--locked) .achievement__blurb {
+  color: var(--fg-muted);
+}
+
+/* ==========================================================================
+   6b. Chips and badges
+
+   One geometry for every small label that actually exists: the achievement
+   rarity badge, the achievement reward chips, the upgrade effect badge and
+   the price chips. Padding comes from `--chip-pad-y`/`--chip-pad-x`, so they
+   cannot drift.
+
+   `.rarity-chip` used to be listed here as a fifth participant. Nothing in
+   the markup or in `ui.ts` ever emitted that class, so it was a phantom in the
+   one rule the sizing notes point at -- removed rather than left to be
+   mistaken for a live fourth chip.
+
+   Geometry lives here; colour lives in each component's own section, so a
+   component can change its hue without changing its size.
+
+   The tracking is 0.04em, not the 0.16em label tracking: letter spacing is
+   added after the final character too, which leaves a padded badge with more
+   space on its right than its left.
+   ========================================================================== */
+
+.achievement__tier,
+.achievement__reward,
+.upgrade__effect {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--chip-pad-y) var(--chip-pad-x);
+  border: var(--hairline) solid var(--rule-strong);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The reward chips and the effect badge carry mixed-case text in the source
+   ("x2 Worker", "+0.5% All output"); only the rarity word is all-caps. */
+.achievement__reward,
+.upgrade__effect {
+  text-transform: none;
+}
+
+/*
+   Single-line is right for a chip like "x2", but an effect badge can be a
+   whole phrase -- "Worker doubles every 20, was 25" -- and `nowrap` would
+   then push its row past the viewport on a 320px screen. This badge, and
+   only this badge, is allowed to wrap inside its own box instead; the short
+   chips it shares geometry with keep the single-line treatment.
+
+   The live label separates those two halves with a MIDDOT, which is written in
+   `ui.ts` rather than here. It is spelled out instead of quoted because this
+   stylesheet has to stay pure ASCII: it is served as `text/css` with no
+   charset, so a literal non-ASCII byte in CSS is decoded as Latin-1.
+*/
+.upgrade__effect {
+  white-space: normal;
+}
+
+/* Shared thin-track progress bar. The numeric label beside it carries the
+   same information, so the bar is decorative reinforcement, not the source. */
+.achievement__progress,
+.contract__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  /*
+     An unlocked achievement hides its "n / n" label, and an empty span is 0
+     tall -- which made an unlocked card's progress row 15.4px shorter than a
+     locked one's. Reserving the line box keeps every card the same height.
+  */
+  min-height: calc(var(--fs-label) * var(--lh-chip));
+}
+
+/* A little air under the badges, so the rule does not sit on the progress row. */
+.achievement__progress {
+  margin-top: var(--space-xs);
+}
+
+/*
+   Every progress rule in the game shares one thickness: the four tracks below
+   and the service milestone pips.
+*/
+.achievement__track,
+.contract__track,
+.ability__track,
+.reboot__track {
+  height: var(--progress-h);
+}
+
+.achievement__track,
+.contract__track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 3rem;
+  background-color: var(--rule);
+  overflow: hidden;
+}
+
+.achievement__bar,
+.contract__bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background-color: var(--accent);
+  transition: width var(--dur) var(--ease);
+}
+
+.achievement__progress-text,
+.contract__progress-text {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* Locked state is signalled by text and a muted name, never by colour alone. */
+.achievement--locked .achievement__bar {
+  background-color: var(--fg-faint);
+}
+
+/*
+   An unlocked card states its state in its own rarity colour, and the
+   progress rule fills with it. A locked card stays faint, so the state line
+   is the clearest switch between the two.
+*/
+.achievement__state {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.achievement:not(.achievement--locked) .achievement__state {
+  color: var(--r, var(--r-bronze));
+}
+
+.achievement:not(.achievement--locked) .achievement__bar {
+  background-color: var(--r, var(--r-bronze));
+}
+
+@media (min-width: 48rem) {
+  /*
+   * Two columns from 768px, not 640px. At 640 a two-column card is only about
+   * 280px wide, which leaves the name column too narrow and makes a third of
+   * the names wrap to a second line. One column until there is room.
+   */
+  .achievements {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-xl);
+  }
+}
+
+@media (min-width: 64rem) {
+  .achievements {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. Save bar
+   -------------------------------------------------------------------------- */
+
+.savebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  margin-top: var(--section-gap);
+  padding-top: var(--space-lg);
+  border-top: var(--hairline) solid var(--rule);
+}
+
+.savebar__text {
+  font-size: var(--fs-small);
+  color: var(--fg-muted);
+}
+
+.savebar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+@media (min-width: 48rem) {
+  .savebar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   12. Buttons that the global .btn rules do not cover
+   -------------------------------------------------------------------------- */
+
+.game-btn {
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid var(--rule-strong);
+  background-color: transparent;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.game-btn:hover,
+.game-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.game-btn[disabled] {
+  border-color: var(--rule);
+  color: var(--fg-faint);
+  cursor: not-allowed;
+}
+
+.game-btn[disabled]:hover {
+  border-color: var(--rule);
+  color: var(--fg-faint);
+}
+
+.game-btn--accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.game-btn--accent:hover,
+.game-btn--accent:focus-visible {
+  background-color: rgba(45, 212, 191, 0.12);
+}
+
+.game-btn--danger:hover,
+.game-btn--danger:focus-visible {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+/* --------------------------------------------------------------------------
+   13. Motion preferences
+   The game deliberately has almost no motion; this removes what exists.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .game__deploy,
+  .game__qty-btn,
+  .game-btn,
+  .service__buy,
+  .service__icon,
+  .glyph,
+  .contract,
+  .toast {
+    transition: none;
+  }
+
+  /* The progress bars animate on width, so pin them instantly. */
+  .achievement__bar,
+  .contract__bar {
+    transition: none;
+  }
+
+  /*
+     The floating number KEEPS ITS FIGURE and loses only its travel.
+
+     `animation: none` is REQUIRED here rather than merely "no transform",
+     because `global.css` sets a blanket `animation-duration: 0.01ms
+     !important` under this query. Leaving the animation in place would run it
+     to its final keyframe -- which is `opacity: 0` -- so the number would flash
+     and vanish instead of being readable, and the reduced-motion case would
+     lose the feedback rather than just the movement.
+
+     With no animation the element holds its base opacity of 1 and the removal
+     timer in `ui.ts` takes it away, so the result is a static figure above the
+     cursor for the same 900ms. The number is information and the travel is the
+     decoration; only the decoration is dropped.
+  */
+  .game__deploy-float {
+    animation: none;
+    transform: translate(-50%, -1rem);
+  }
+}
+
+/* ==========================================================================
+   14. Tabs
+
+   One panel is shown at a time. All five stay in the DOM and are toggled with
+   the `hidden` attribute rather than being created and destroyed, so the
+   element cache and the in-place row updates in ui.ts keep working.
+
+   The tablist scrolls horizontally on narrow screens instead of wrapping:
+   wrapping a tab row makes the active tab jump between lines as the count
+   changes, and a scrolling row keeps the tab order stable.
+   ========================================================================== */
+
+.game__tabs {
+  display: flex;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xl);
+  border-bottom: var(--hairline) solid var(--rule);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.game-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: none;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid transparent;
+  border-bottom-color: var(--rule);
+  background-color: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  letter-spacing: var(--ls-label);
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.game-tab:hover,
+.game-tab:focus-visible {
+  color: var(--fg);
+  background-color: rgba(241, 242, 238, 0.04);
+}
+
+/* The active tab connects to the panel below it by overpainting the rule. */
+.game-tab[aria-selected='true'] {
+  color: var(--tab-hue, var(--accent));
+  border-color: var(--rule);
+  border-bottom-color: var(--bg);
+  background-color: var(--bg-raised);
+}
+
+/*
+   Each tab LEADS to a concept, and takes that concept's hue, so the tab row
+   reads as five destinations rather than five identical buttons.
+
+   The hue is the `--stat-*` token the panel's own figures use -- the fleet
+   orange, the shard cyan, the core violet -- so navigation reuses the one
+   colour language instead of introducing a second. The mapping is declared on
+   the TAB and on the PANEL together, because the two need the same value: the
+   tab to light up with, the heading to inherit.
+
+   Only the SELECTED tab takes the hue. Inactive tabs stay `--fg-muted` so the
+   colour is what marks which one is open; tinting all five would move the
+   signal from "this one is active" to "this one is called Contracts", which
+   the label already says.
+*/
+.game-tab[data-tab='services'],
+#panel-services {
+  --tab-hue: var(--stat-fleet);
+}
+
+.game-tab[data-tab='upgrades'],
+#panel-upgrades {
+  --tab-hue: var(--stat-shards);
+}
+
+.game-tab[data-tab='contracts'],
+#panel-contracts {
+  --tab-hue: var(--stat-contract);
+}
+
+.game-tab[data-tab='achievements'],
+#panel-achievements {
+  --tab-hue: var(--stat-achv);
+}
+
+.game-tab[data-tab='reboot'],
+#panel-reboot {
+  --tab-hue: var(--stat-cores);
+}
+
+.game-tab__icon {
+  flex: none;
+}
+
+.game-tab__badge {
+  min-width: 1.4rem;
+  padding: var(--chip-pad-y) var(--chip-pad-x);
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: var(--ink);
+  /* Same font size as every other badge; the tight line-height keeps the pill
+     from growing taller than the tab can comfortably hold. */
+  font-size: var(--fs-label);
+  line-height: 1;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* Used when a tab is offering something to spend: affordable upgrades, a
+   completed contract, a ready ability. */
+.game-tab__badge--alert {
+  background-color: var(--ok);
+}
+
+.game-tab__badge[hidden] {
+  display: none;
+}
+
+.game__panel {
+  padding-top: var(--space-xl);
+}
+
+.game__panel[hidden] {
+  display: none;
+}
+
+.game__panel:focus-visible {
+  outline: var(--hairline) solid var(--accent);
+  outline-offset: var(--space-sm);
+}
+
+/* --------------------------------------------------------------------------
+   15. Medallions
+
+   The shared tinted-glyph chip used by services, upgrades, contracts and
+   achievements. The hue comes from a --tier or rarity custom property set on
+   the element, so one rule covers every variant.
+   -------------------------------------------------------------------------- */
+
+.medal {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: var(--hairline) solid currentColor;
+  background-image: var(--medal-bg);
+  color: var(--tier, var(--fg-faint));
+  transition: color var(--dur) var(--ease);
+}
+
+.medal--quiet {
+  color: var(--fg-faint);
+  border-color: var(--rule);
+}
+
+.medal svg {
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   16. Deploy button artwork
+   -------------------------------------------------------------------------- */
+
+.game__deploy-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.game__deploy-icon {
+  flex: none;
+}
+
+.game__deploy {
+  background-image: var(--panel-bg);
+}
+
+/* --------------------------------------------------------------------------
+   17. Stat chips
+   -------------------------------------------------------------------------- */
+
+/*
+   Chip hues by class rather than an inline `--stat: var(--stat-x)`. An inline
+   custom property that references another custom property does not reliably
+   recompute when a media query changes the referenced token, so an inline
+   version of this left the numbers in their screen colours on paper. Keeping
+   the mapping in CSS also means the markup names the readout, not the colour.
+*/
+.game-stat--compute {
+  --stat: var(--stat-compute);
+}
+
+.game-stat--rate {
+  --stat: var(--stat-rate);
+}
+
+.game-stat--click {
+  --stat: var(--stat-click);
+}
+
+.game-stat--cores {
+  --stat: var(--stat-cores);
+}
+
+.game-stat--mult {
+  --stat: var(--stat-mult);
+}
+
+.game-stat--achv {
+  --stat: var(--stat-achv);
+}
+
+.game-stat--shards {
+  --stat: var(--stat-shards);
+}
+
+/* --------------------------------------------------------------------------
+   The breakdown panel
+
+   What a hovered total is MADE OF. One shared panel spanning the stats grid,
+   filled by ui.ts and revealed on pointerover.
+
+   It spans the grid rather than floating over the chip it describes. A popover
+   anchored to a 140px chip would have to overhang its own track to be readable,
+   and at 320px that is horizontal overflow -- the invariant this project cares
+   most about. Spanning means the panel's width is the grid's width, which is
+   already viewport-safe at every breakpoint, and the rows wrap inside it.
+
+   It appears BELOW the stats rather than over the tablist, so revealing it can
+   never cover a control the player is reaching for.
+
+   Squares up with the chips: same row gap, same `minmax(0, 1fr)` rule so a long
+   term name cannot blow the grid out.
+   -------------------------------------------------------------------------- */
+
+.game__breakdown {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--rule);
+  border-inline-start: var(--hairline-accent) solid var(--accent);
+  background: var(--bg-raised);
+}
+
+/*
+   `hidden` needs its own rule, like every other `[hidden]` in this file.
+
+   The UA's `[hidden] { display: none }` and this component's `display: grid`
+   have EQUAL specificity (one class each), so whichever sheet comes later wins
+   -- and game.css is loaded after the UA sheet, so `display: grid` won. The
+   panel was therefore always laid out: 168px of empty box above the Deploy
+   button, showing whatever the last hover put there, from page load. A
+   two-class selector settles it regardless of load order.
+*/
+.game__breakdown[hidden] {
+  display: none;
+}
+
+.game__breakdown-title {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+/*
+   One flex LINE per term, each holding its own `<dt>`/`<dd>` pair.
+
+   A `<div>` wrapping the pair is valid inside a `<dl>` (HTML 5.2), and it is
+   what makes a row a single line rather than two grid cells that only LOOK
+   paired. The difference is the label: as a grid cell it occupied a fixed track,
+   so a long term wrapped against a boundary it could not negotiate, and at 320px
+   that put a term and its figure on different lines. As a flex item the term
+   takes what it needs and the value is pushed to the end instead.
+
+   The value is pushed by `margin-inline-start: auto` rather than by
+   `justify-content: space-between`, because `space-between` would ALSO push them
+   apart when the label already fills the row -- an auto margin only ever adds
+   space that is genuinely going spare.
+
+   The stack is a flex COLUMN with a row gap, so the two axes are independent:
+   spacing between rows cannot be confused with spacing within one.
+*/
+.game__breakdown-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  margin: 0;
+}
+
+.game__breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.game__breakdown-row dt {
+  /*
+     Shrinks before the value does, and is allowed to wrap: a term is prose and
+     can break anywhere, while a value must stay on one line to be read as a
+     number.
+  */
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  /*
+     A HINT of the row's own hue rather than flat grey, so a term and the figure
+     beside it read as one entry. Most of the way to `--fg-muted` because the
+     label is the caption and the value is the answer.
+
+     Print-safe by construction: `print.css` collapses every `--stat-*` token to
+     black, so this mixes black toward `--fg-muted` and stays a legible dark
+     grey. No print override needed -- unlike a `color-mix` FILL, which would
+     print as a grey box and does need one.
+  */
+  color: color-mix(in srgb, var(--concept, var(--fg-muted)) 55%, var(--fg-muted));
+}
+
+.game__breakdown-row dd {
+  /* Never shrinks and never wraps: the figure is the point of the row. */
+  flex: none;
+  margin: 0;
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-chip);
+  /*
+     The hue comes from the `concept--<id>` class and never from an inline
+     custom property. An inline `--concept` that references another custom
+     property does not reliably recompute when a media query changes the token
+     behind it, which leaves these values printing in their screen colours.
+  */
+  color: var(--concept, var(--fg));
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+   The concept glyph. Full-strength hue where the label is a muted mix of it, so
+   the identity reads at a glance and the label still defers to the value beside
+   it. Sized by CSS, not by the SVG attributes, so it fits this row's line box
+   rather than setting it.
+
+   INLINE-BLOCK, not a flex item, and that is still deliberate even though the
+   row is now flex. It sits INSIDE the `dt`, whose content is a glyph and a text
+   span, so making the `dt` itself a flex container would report the `dt`'s
+   baseline from the SVG -- an element with no text baseline -- and break any
+   baseline alignment a parent asked for. Inline-block keeps the `dt`'s baseline
+   on the TEXT.
+
+   `vertical-align: -0.18em` rather than `middle`, and the target is the CAP
+   CENTRE of the label -- not the centre of the line box. Uppercase text uses no
+   descender, so the line box's midpoint sits below the glyphs and centring on it
+   leaves the icon riding high. Swept from -0.10em to -0.28em against the label's
+   own ink box, this value puts the icon's centre 0.02px from the caps' centre.
+*/
+.game__breakdown-icon {
+  display: inline-block;
+  vertical-align: -0.18em;
+  margin-inline-end: var(--space-2xs);
+  width: var(--icon-breakdown);
+  height: var(--icon-breakdown);
+  color: var(--concept, var(--fg-muted));
+}
+
+/*
+   The label text. Kept as its own element so a rule can target it without
+   touching the glyph, and so `overflow-wrap` has an element whose content is
+   the text alone.
+*/
+.game__breakdown-term {
+  overflow-wrap: anywhere;
+}
+
+/*
+   An indented detail row: the multiplier's own terms, under the `× Multiplier`
+   row they compose.
+
+   Indented rather than promoted so the top level stays the three terms that
+   actually multiply the tier total. A guide rule on the left makes the nesting
+   read as grouping rather than as a ragged list, and it takes the row's OWN hue
+   so the group is visible in colour as well as in position -- and because it is
+   on the ROW rather than on the `dt`, the rail spans the full line, including
+   the value's half.
+*/
+.game__breakdown-row[data-sub] {
+  padding-inline-start: var(--space-md);
+  border-inline-start: var(--hairline-accent) solid var(--concept, var(--rule));
+}
+
+/* Deeper than the value's mix, so the sub-row term stays the quieter half. */
+.game__breakdown-row[data-sub] dt {
+  color: color-mix(in srgb, var(--concept, var(--fg-muted)) 40%, var(--fg-muted));
+}
+
+/*
+   `var(--concept, ...)` and NOT a flat token. This was `--fg-muted`, which
+   silently FLATTENED the concept hue on every sub row -- the shards and
+   additive-pool figures rendered grey beside their own coloured rail. A `color`
+   on the `dd` outranks `.concept--<id>`'s `--concept`.
+*/
+.game__breakdown-row[data-sub] dd {
+  font-size: var(--fs-label);
+  color: color-mix(in srgb, var(--concept, var(--fg-muted)) 88%, var(--fg));
+}
+
+/*
+   The closing `= total` row, ruled off from the terms it multiplies.
+
+   The `dd` deliberately does NOT set a colour: the total is the most important
+   value in the panel, so it keeps the concept hue it was given, and a `color`
+   here would outrank `.concept--<id>`'s `--concept` and flatten it. The rule
+   above it takes that same hue, so the line that closes the sum is drawn in the
+   colour of the answer.
+*/
+.game__breakdown-row[data-total] {
+  padding-block-start: var(--space-2xs);
+  border-block-start: var(--hairline-accent) solid var(--concept, var(--rule));
+}
+
+.game__breakdown-row[data-total] dt {
+  color: var(--concept, var(--fg));
+  font-weight: var(--fw-semibold);
+}
+
+/* An affordance for the chips that have one. `help` rather than `pointer`,
+   because the hover reveals an explanation rather than doing anything. */
+.game-stat[data-breakdown] {
+  cursor: help;
+}
+
+/*
+   Concepts: one hue per named thing, keyed by class the same way the stat
+   chips are. Every currency and stat mention in the game renders through
+   `.concept--<id>` so the identity is decided here once rather than at each
+   call site -- see `concepts.ts`, which pairs each id with its glyph.
+
+   The hues are the `--stat-*` tokens, not copies of them. A second set of
+   literal colours would drift from the stat chips the moment either changed,
+   and the whole point is that a shard cost and a shard balance are visibly
+   the same thing.
+*/
+.concept {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  /*
+     Centred against the surrounding line box. An inline-flex box aligns on
+     its baseline by default, and the glyph has no text baseline of its own,
+     so in a line of prose ("Reward 250 compute + 24 shards") it sat visibly
+     low against the words beside it.
+  */
+  vertical-align: middle;
+  color: var(--concept, var(--fg));
+}
+
+.concept__icon {
+  flex: none;
+  /* The glyph follows the concept hue, not the surrounding text colour. */
+  color: var(--concept, currentColor);
+}
+
+/*
+   Inside a chip or a toast the glyph sits on the surrounding line box, so it is
+   pinned to that box's font size rather than the 20px the element builder
+   defaults to. The wrapper's `gap` spaces it from the text, so no space
+   character is needed and none is inserted.
+
+   ONE declaration block, and EVERY chip that can hold a concept belongs in the
+   list. The geometry is stated once so two chips cannot drift apart -- which is
+   what happened here: `.contract__reward`, `.upgrade__cost` and `.service__cost`
+   were missing from this list, so their glyphs kept the builder's 20px default
+   inside an ~11px line box and inflated those rows (the same defect the sizing
+   notes at the top of this file describe for a text chip).
+
+   A blanket `.concept__icon { width: ... }` is deliberately NOT used: the
+   markup path (`Concept.astro`) passes a `size` prop as SVG ATTRIBUTES, and a
+   bare CSS rule outranks an attribute, so it would silently pin the HUD
+   readouts to the chip size too.
+*/
+.achievement__reward .concept__icon,
+.upgrade__effect .concept__icon,
+.upgrade__cost .concept__icon,
+.service__cost .concept__icon,
+.contract__reward .concept__icon,
+.service__milestone-note .concept__icon,
+.toast .concept__icon {
+  width: var(--icon-chip);
+  height: var(--icon-chip);
+}
+
+.concept--compute {
+  --concept: var(--stat-compute);
+}
+
+.concept--production {
+  --concept: var(--stat-rate);
+}
+
+.concept--deploy {
+  --concept: var(--stat-click);
+}
+
+.concept--cores {
+  --concept: var(--stat-cores);
+}
+
+.concept--multiplier {
+  --concept: var(--stat-mult);
+}
+
+.concept--achievements {
+  --concept: var(--stat-achv);
+}
+
+.concept--shards {
+  --concept: var(--stat-shards);
+}
+
+/*
+   The held-shard balance. It shares the shard hue rather than taking a colour
+   of its own, because the reserve IS the shard economy from the holding side;
+   the glyph is what separates the two. See concepts.ts.
+*/
+.concept--reserve {
+  --concept: var(--stat-shards);
+}
+
+.concept--reboots {
+  --concept: var(--stat-reboots);
+}
+
+.concept--fleet {
+  --concept: var(--stat-fleet);
+}
+
+.concept--contract {
+  --concept: var(--stat-contract);
+}
+
+.concept--away {
+  --concept: var(--stat-away);
+}
+
+/*
+   Spans the whole grid and holds both currencies side by side: they are the
+   same kind of thing, stocks you hold and spend, and a core multiplies what
+   held shards produce. The rule above it divides production from holdings.
+*/
+.game__stats-wallet {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md) var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: var(--hairline) solid var(--rule);
+}
+
+/*
+   The gain badge: a "+6" that fades out beside the balance. Only its opacity
+   and transform are animated, so it cannot shift the layout, and the
+   reduced-motion block disables it outright.
+*/
+.game-stat__gain {
+  display: inline-block;
+  margin-left: var(--space-xs);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-value);
+  vertical-align: middle;
+  opacity: 0;
+  color: var(--stat-shards);
+}
+
+.game-stat__gain.is-gained {
+  animation: shard-gain 1400ms var(--ease) 1;
+}
+
+@keyframes shard-gain {
+  0% {
+    opacity: 0;
+    transform: translateY(0.3rem);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.2rem);
+  }
+}
+
+.game-stat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.game-stat__icon {
+  flex: none;
+  color: var(--stat, var(--fg-faint));
+}
+
+/* --------------------------------------------------------------------------
+   18. Services: tier medallion, owned badge, milestone pips
+   -------------------------------------------------------------------------- */
+
+.service__owned {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.service__owned--active {
+  color: var(--tier, var(--accent));
+}
+
+/* Five pips, each worth a fifth of the way to the next milestone, beside the
+   plain-language milestone line that names the step count and the payoff. */
+.service__milestone-track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-xs);
+  min-width: 0;
+}
+
+.service__pips {
+  display: inline-flex;
+  gap: var(--progress-h);
+  align-items: center;
+}
+
+.service__pip {
+  display: block;
+  width: 0.7rem;
+  height: var(--progress-h);
+  background-color: var(--rule);
+}
+
+.service__pip--on {
+  background-color: var(--tier, var(--accent));
+}
+
+/*
+   The milestone explanation: "4 steps - next 57.67x at 50".
+   Mono and small like the other supporting readouts, but NOT uppercase and
+   not a `.label`: this is a sentence carrying numbers, and shouting it would
+   make two figures in the same line compete for attention.
+*/
+.service__milestone-note {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.04em;
+  line-height: var(--lh-chip);
+  color: var(--fg-faint);
+}
+
+/* --------------------------------------------------------------------------
+   19. Upgrade medallion
+
+   Faint while the upgrade is unowned, then its own `--up-group` colour once
+   owned. Category hue and ownership therefore share one signal.
+   -------------------------------------------------------------------------- */
+
+.upgrade__medal {
+  color: var(--fg-faint);
+  border-color: var(--rule);
+}
+
+.upgrade--owned .upgrade__medal {
+  color: var(--up-group, var(--accent));
+  border-color: var(--up-group, var(--accent));
+}
+
+/* --------------------------------------------------------------------------
+   20. Contracts: medallion and payout badge
+   -------------------------------------------------------------------------- */
+
+.contract__medal {
+  color: var(--warn);
+}
+
+.contract--complete .contract__medal {
+  color: var(--ok);
+}
+
+.contract__reward {
+  display: block;
+  margin-top: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.06em;
+  color: var(--warn);
+}
+
+.contract__reward::before {
+  content: '';
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-inline-end: var(--space-xs);
+  background-color: currentColor;
+  transform: rotate(45deg);
+  vertical-align: middle;
+}
+
+/* Each currency carries its own hue, the same one it wears in the HUD and on
+   an upgrade price, so compute and shards are recognisable without reading the
+   label -- but both are still labelled, so colour is never the only signal.
+   The "Reward" word and the diamond stay in the element's own colour, which
+   is how the contract's complete/in-progress state keeps reading. */
+.contract__reward-compute {
+  color: var(--stat-compute);
+}
+
+.contract__reward-shards {
+  color: var(--shard);
+}
+
+.contract__reward-plus {
+  color: var(--fg-muted);
+}
+
+/*
+   A contract pays the currency its objective is about, and both when it is
+   about neither -- so half of this line is absent on most cards.
+
+   The `hidden` attribute alone is NOT enough here, and the reason is worth
+   recording: `.concept` sets `display: inline-flex`, and an element-level
+   `display` beats the user-agent rule that `hidden` relies on. The attribute
+   would be set, the element would remain visible, and the card would read
+   "0 shards" beside a compute payout. A per-selector rule is required, which
+   is why every other `[hidden]` in this file has one too.
+*/
+.contract__reward .concept[hidden],
+.contract__reward-plus[hidden] {
+  display: none;
+}
+
+.contract--complete .contract__reward {
+  color: var(--ok);
+}
+
+.contract--complete .contract__bar {
+  background-color: var(--ok);
+}
+
+/* --------------------------------------------------------------------------
+   21. Achievements: rarity cards, grouped by theme
+
+   Rarity drives the left rail, the medallion tint, the stroke weight (set in
+   icons.ts) and the spelled-out label, so it is never carried by colour alone.
+   -------------------------------------------------------------------------- */
+
+.achievement-group {
+  margin-top: var(--space-xl);
+}
+
+.achievement-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm) var(--space-md);
+  padding-bottom: var(--space-xs);
+  border-bottom: var(--hairline) solid var(--rule-strong);
+}
+
+.achievement-group__title {
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+}
+
+.achievement-group__count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.08em;
+  color: var(--fg-faint);
+}
+
+.achievement-group__blurb {
+  flex-basis: 100%;
+  font-size: var(--fs-small);
+  color: var(--fg-faint);
+}
+
+/*
+   Rarity as a local token. A class, not an inline custom property, for the
+   same reason as the stat chips and tiers: an inline `--r: var(--r-gold)`
+   does not reliably recompute when print collapses the rarity ramp, so the
+   colour could not be dropped for paper.
+*/
+.achievement--bronze {
+  --r: var(--r-bronze);
+  --r-soft: var(--r-bronze-soft);
+}
+
+.achievement--silver {
+  --r: var(--r-silver);
+  --r-soft: var(--r-silver-soft);
+}
+
+.achievement--gold {
+  --r: var(--r-gold);
+  --r-soft: var(--r-gold-soft);
+}
+
+.achievement--mythic {
+  --r: var(--r-mythic);
+  --r-soft: var(--r-mythic-soft);
+}
+
+.achievement {
+  padding: var(--space-md) var(--space-lg);
+  border: var(--hairline) solid var(--rule);
+  border-left: var(--hairline-accent) solid var(--r, var(--r-bronze));
+  /* Dark by default: a locked card has no fill and no sheen. */
+  background-image: none;
+  /*
+     Cards in a grid row stretch to the tallest, so they read as one block.
+     That is wanted. What is not wanted is the surplus being shared out among
+     the *internal* rows: `normal` behaves as `stretch`, which inflated the
+     reward chips on a card whose neighbour happened to be taller -- a chip's
+     height depended on the card next to it. `start` sizes each row to its
+     content and leaves any leftover at the bottom of the card.
+  */
+  align-content: start;
+}
+
+/*
+   Unlocked is the activated state, and it lights up in the card's OWN rarity
+   colour -- rail, wash, state, progress rule, medallion and reward chips.
+   A locked card stays dark and neutral, so the difference between "you have
+   this" and "you do not" is a switch, not a hue.
+
+   This is deliberately not green: green marks something ready to use right
+   now (a ready ability, a completed contract). An unlocked achievement is
+   permanently held, and its rarity is its identity, so owning it switches
+   that colour on.
+*/
+.achievement:not(.achievement--locked) {
+  background-color: var(--r-soft);
+}
+
+.achievement__medal {
+  color: var(--fg-faint);
+  border-color: var(--rule);
+}
+
+.achievement:not(.achievement--locked) .achievement__medal {
+  color: var(--r, var(--r-bronze));
+  border-color: var(--r, var(--r-bronze));
+}
+
+.achievement--locked .achievement__medal {
+  color: var(--fg-faint);
+  border-color: var(--rule);
+}
+
+/* The four rarity word colours are declared ONCE, above (section 10). They
+   were repeated here, identically, for three of the four rarities -- dead
+   declarations that made a reader hunt for which copy was live. */
+
+/*
+   The card reads as two zones: what this is (head, description) and what it
+   gives (reward badges, progress). The separation is space alone -- no rule.
+   A hairline here looked like an underline on the description rather than a
+   divider, and the card already has enough lines of its own.
+
+   Spacing compounds with the card's uniform row gap, so the total between the
+   description and the first badge is the row gap plus this margin.
+*/
+.achievement__rewards {
+  display: flex;
+  flex-wrap: wrap;
+  /* Chips keep their own height; the default `stretch` would make every chip
+     in a line as tall as the tallest one, including one with a glyph. */
+  align-items: flex-start;
+  gap: var(--space-2xs);
+  margin-top: var(--space-sm);
+}
+
+.achievement__reward {
+  color: var(--fg-muted);
+}
+
+.achievement__reward-icon {
+  flex: none;
+  /*
+     No `color` here. A reward glyph is either the ability key (which follows
+     the chip's own colour) or a CONCEPT glyph, which sets its hue from
+     `--concept`; declaring a colour here would override the concept and leave
+     a cyan shard glyph sitting on muted grey text.
+  */
+  /*
+     Sized to the chip's own line box, not the 20px the icon builder defaults
+     to. A 20px glyph made an icon chip 26.4px tall while a text-only chip was
+     21.8px, so two chips on the same card did not line up.
+  */
+  width: 14px;
+  height: 14px;
+}
+
+/*
+   On a locked card a chip is a promise; on an unlocked one it is a bonus the
+   player is currently getting. So unlocked chips take the card's rarity
+   colour and locked chips stay muted, which is what makes the effects read as
+   switched on rather than as grey labels.
+*/
+.achievement:not(.achievement--locked) .achievement__reward {
+  border-color: var(--r, var(--r-bronze));
+  color: var(--r, var(--r-bronze));
+}
+
+/* A reward that grants an ability is the flashiest thing on the card. It is
+   set apart by its key glyph and a tinted fill rather than by a different
+   hue, so the card's colour still means "unlocked" and nothing else. */
+.achievement__reward--ability {
+  border-color: var(--r-mythic);
+  color: var(--r-mythic);
+}
+
+.achievement:not(.achievement--locked) .achievement__reward--ability {
+  border-color: var(--r, var(--r-mythic));
+  color: var(--r, var(--r-mythic));
+  background-color: color-mix(in srgb, var(--r, var(--r-mythic)) 18%, transparent);
+}
+
+/*
+   A reward chip that NAMES a concept takes that concept's hue -- text and
+   border both, so the badge and the glyph inside it agree.
+
+   Written at the same specificity as the rarity tint above, and after it,
+   because a plain `.achievement__reward--concept` would lose to
+   `.achievement:not(.achievement--locked) .achievement__reward`. Both
+   selectors are listed so the hue also applies on a locked card, where the
+   rarity rule does not match; locked chips are dimmed by opacity instead, so
+   the hue still says what the reward is about before it is earned.
+*/
+.achievement .achievement__reward--concept,
+.achievement:not(.achievement--locked) .achievement__reward--concept {
+  border-color: var(--concept, var(--rule-strong));
+  color: var(--concept, var(--fg-muted));
+}
+
+/* The ability chip's fill and the concept hue are independent: a tinted fill
+   still marks "this unlocks a button", while the hue says which stat the
+   reward is measured in. There is no ability reward that names a concept
+   today, so this only guards the combination rather than expressing one. */
+.achievement:not(.achievement--locked) .achievement__reward--concept {
+  background-color: color-mix(in srgb, var(--concept) 14%, transparent);
+}
+
+.achievement--locked .achievement__rewards {
+  opacity: 0.6;
+}
+
+/*
+   One-shot acknowledgement when a card flips to unlocked. An overlay's
+   opacity is animated rather than the card itself, so nothing moves, resizes
+   or can overflow; see the motion invariant in the agent context.
+*/
+.achievement {
+  position: relative;
+}
+
+.achievement.is-new::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--hairline-accent) solid var(--r, var(--r-bronze));
+  opacity: 0;
+  pointer-events: none;
+  animation: achievement-unlock 1400ms var(--ease) 1;
+}
+
+@keyframes achievement-unlock {
+  0% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 0.55;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 48rem) {
+  /*
+   * The card's row layout only makes sense once the grid is two columns. A
+   * single full-width card has room to stack everything, and forcing the
+   * two-column split on it would leave the state word sitting far from the
+   * card it belongs to.
+   *
+   * This is the only block that sets the achievement grid areas.
+   *
+   * The state column is `auto`, not a fixed 9rem: it holds one short word, and
+   * every pixel it takes from the head column pushes the name and the rarity
+   * badge narrower.
+   */
+  .achievement {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'head state'
+      'blurb blurb'
+      'rewards rewards'
+      'progress progress';
+    column-gap: var(--space-md);
+  }
+
+  .achievement__head {
+    grid-area: head;
+  }
+
+  .achievement__blurb {
+    grid-area: blurb;
+  }
+
+  .achievement__rewards {
+    grid-area: rewards;
+  }
+
+  .achievement__progress {
+    grid-area: progress;
+  }
+
+  .achievement__state {
+    grid-area: state;
+    text-align: right;
+    white-space: nowrap;
+    /*
+       Grid items stretch to their row by default, and the head row is as tall
+       as a possibly two-line title, so this box would stretch with it. It has
+       no background, so it only matters for measurement -- but a stretched box
+       defeats "same height for the same element" and hides real regressions.
+    */
+    align-self: start;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   22. Reboot: threshold progress and readiness
+   -------------------------------------------------------------------------- */
+
+/*
+   Readiness for a Reboot, spelled out as a word. The accent tint on the
+   border and the rule reinforce it, but the chip is what actually says it,
+   so the state survives greyscale and colour-vision differences. Matches the
+   tab badge that announces the same thing.
+*/
+.reboot__ready {
+  padding: var(--chip-pad-y) var(--chip-pad-x);
+  border-radius: 999px;
+  background-color: var(--ok);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: 1;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.reboot__ready[hidden] {
+  display: none;
+}
+
+.reboot__track {
+  display: block;
+  position: relative;
+  background-color: var(--rule);
+  overflow: hidden;
+}
+
+.reboot__bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background-color: var(--fg-faint);
+  transition: width var(--dur) var(--ease);
+}
+
+.reboot--ready .reboot__bar {
+  background-color: var(--accent);
+}
+
+.reboot__progress-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-chip);
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+
+/* --------------------------------------------------------------------------
+   24. Motion preferences, for everything added above
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .game-tab,
+  .ability,
+  .ability__icon,
+  .ability__bar,
+  .medal,
+  .reboot__bar,
+  .achievement,
+  /* The service row's tier rail. Registered here because a transition added
+     without a reduced-motion counterpart is a real gap, not a cosmetic one. */
+  .service,
+  .service__output-value,
+  .upgrade,
+  /* The shard gain badge is a transient flourish, so it is disabled outright
+     rather than shortened: the balance beside it already reports the change,
+     and the live region announces it. */
+  .game-stat__gain {
+    transition: none;
+    animation: none;
+  }
+
+  /* No unlock flash at all: the card's green state already reports it, and
+     the reduced-motion preference asks for no animation, not a shorter one. */
+  .achievement.is-new::after {
+    animation: none;
+    opacity: 0;
+  }
+}

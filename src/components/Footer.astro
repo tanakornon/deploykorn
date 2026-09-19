@@ -1,0 +1,46 @@
+---
+---
+
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <p class="mono site-footer__item">Deploykorn</p>
+    <p class="mono site-footer__item site-footer__item--muted">
+      Progress saved locally in your browser
+    </p>
+    <a class="mono site-footer__item site-footer__top" href="#main">Back to top</a>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: var(--hairline) solid var(--rule);
+    margin-top: var(--space-4xl);
+  }
+
+  .site-footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm) var(--space-xl);
+    padding-block: var(--space-xl);
+  }
+
+  .site-footer__item {
+    color: var(--fg-muted);
+  }
+
+  .site-footer__item--muted {
+    color: var(--fg-faint);
+  }
+
+  .site-footer__top {
+    text-decoration: none;
+    transition: color var(--dur) var(--ease);
+  }
+
+  .site-footer__top:hover,
+  .site-footer__top:focus-visible {
+    color: var(--accent);
+  }
+</style>

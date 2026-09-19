@@ -1,0 +1,544 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { MILESTONE, PRESTIGE, SYNERGY } from '../game/content';
+import { GLYPH_MARKUP } from '../game/icons';
+import Concept from '../components/Concept.astro';
+
+const title = 'Deploykorn — an idle simulation';
+const description =
+  'A small idle/incremental game: deploy services, tune them past milestones, chase contracts, overclock production and reboot for permanent cores. Progress is saved locally in your browser.';
+
+const synergyPct = Math.round(SYNERGY.perUnit * 1000) / 10;
+const corePct = Math.round(PRESTIGE.bonusPerCore * 100);
+---
+
+<BaseLayout title={title} description={description}>
+  <Header />
+
+  <main id="main">
+    <section class="game" aria-labelledby="game-title">
+      <div class="container">
+        <header class="game__head">
+          <p class="label">Idle simulation</p>
+          <h1 class="game__title" id="game-title">Deploykorn</h1>
+          <p class="game__intro">
+            Deploy by hand to get started, then spend compute on services that
+            produce on their own. Every {MILESTONE.step} units a service earns
+            a milestone that multiplies its own output again, so a deep tier
+            compounds and depth pays as well as breadth. Take contracts for a
+            lump sum, overclock when it matters, and reboot once a run
+            outgrows itself.
+          </p>
+        </header>
+
+        {/* Save problems are surfaced here rather than failing silently. */}
+        <p class="game__status" id="game-status" hidden></p>
+
+        {/* The game is driven entirely by JavaScript, so say so plainly rather
+            than leaving a grid of zeros that looks broken. */}
+        <noscript>
+          <p class="game__status">
+            This game is driven by JavaScript, which is currently disabled in
+            your browser, so it cannot run.
+          </p>
+        </noscript>
+
+        {/* Announcements for discrete events only, never per-tick numbers.
+            Two channels for the same events, deliberately:
+              - `live-summary` is the accessible one, read by a screen reader
+                and never seen;
+              - `toasts` is the VISUAL one, because until now a completed
+                contract or achievement was announced only through the live
+                region, which meant a sighted player was told nothing at all.
+            The toast region is `aria-hidden`, so a screen-reader user hears
+            each event once rather than twice. */}
+        <p class="visually-hidden" id="live-summary" role="status" aria-live="polite"></p>
+        <div class="toasts" id="toasts" aria-hidden="true"></div>
+
+        <div class="game__banner" id="offline-banner" hidden>
+          <p class="game__banner-text" id="offline-text"></p>
+          <div class="game__banner-actions">
+            <button class="game-btn" type="button" id="offline-dismiss">
+              Dismiss
+            </button>
+          </div>
+        </div>
+
+        {/* ----------------------------------------------------------------
+            Stat readouts.
+            Marked aria-hidden because they change every tick; the throttled
+            live summary above carries the same information at a readable pace.
+
+            One hero number and a supporting grid, rather than six equal
+            cells: compute is what the player actually watches. Each chip
+            carries a `--stat` hue, so a readout is recognisable by colour,
+            and every number is also named in text beside its glyph.
+            ---------------------------------------------------------------- */}
+        <div class="game__stats" aria-hidden="true">
+          <div class="game-stat game-stat--hero game-stat--compute" data-breakdown="production">
+            <p class="label game-stat__head">
+              <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['bolt']} />
+              <span>Compute</span>
+            </p>
+            <p class="game-stat__value" id="stat-compute">0</p>
+            <p class="game-stat__flow">
+              <span class="game-stat__flow-metric">
+                <svg class="game-stat__flow-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['chart']} />
+                {/* The shared `label` class, not a local copy of it. It is
+                    what every other stat head uses, and a second declaration
+                    of the same micro-label had already drifted: it dropped the
+                    font weight and changed the colour. */}
+                <span class="label game-stat__flow-label">Production</span>
+              </span>
+              <span class="game-stat__flow-value" id="stat-per-second">0</span>
+            </p>
+          </div>
+
+          <div class="game__stats-grid">
+            <div class="game-stat game-stat--click">
+              <p class="label game-stat__head">
+                <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['deploy']} />
+                <span>Per deploy</span>
+              </p>
+              <p class="game-stat__value" id="stat-per-click">0</p>
+            </div>
+
+            {/* The automated deploy rate: deploys per second the fleet performs
+                on its own, from the automation upgrades and two achievements.
+                It takes the deploy hue, because it is the same channel as the
+                button above -- one is a hand on the button, the other is a
+                schedule. The fleet total that used to sit here is still on the
+                Services panel, where its reveal thresholds are read against
+                it. */}
+            <div class="game-stat game-stat--click">
+              <p class="label game-stat__head">
+                <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['deploy']} />
+                <span>Auto-deploy</span>
+              </p>
+              <p class="game-stat__value" id="stat-auto-deploy">0/s</p>
+            </div>
+
+            <div class="game-stat game-stat--mult">
+              <p class="label game-stat__head">
+                <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['layers']} />
+                <span>Multiplier</span>
+              </p>
+              <p class="game-stat__value" id="stat-multiplier">1.00x</p>
+            </div>
+
+            {/* The achievement pool's share of that multiplier.
+
+                This cell once showed only the achievement portion of the
+                global multiplier -- which was also the whole of what could be
+                measured, so it printed 1.237x beside a total in the hundreds
+                and read as "achievements are worthless". The truth was that
+                achievements were not on the channel the stat displayed at all.
+
+                The label was briefly "From awards", on the theory that
+                "achievements" named the LIST while "awards" named the BONUS.
+                That is a distinction the player never makes: the panel, the tab
+                and the notice all say achievement, so a stat that said
+                something else was a second name for one thing.
+
+                THE SAME RULE COVERS "award" AS A NOUN ANYWHERE ELSE. It was
+                used for an achievement's bonus in the multiplier breakdown and
+                in prose, and has been replaced with "achievement" throughout,
+                for the reason above. The word survives only as the VERB "to
+                grant" -- `awardShards`. "the cores a Reboot awards" -- where
+                it means a different thing and no synonym is being coined.
+
+                The bonuses are additive now (see
+                `AchievementReward.globalBonus`), so the pool is an honest
+                multiplier of the same order as the shop's contribution, and it
+                is labelled as a POOL because that is what the number is: 46
+                summed bonuses, not one.
+
+                Shown as a PERCENTAGE (`+24%`) rather than a factor (`1.24x`),
+                because it IS the total of an additive pool and a factor reads
+                badly near 1 -- `1.24x` scans as "basically nothing" when the
+                truth is a +24% gain. The `Multiplier` chip beside it stays a
+                factor on purpose: that one grows without bound, and factors
+                read better far from 1. See the note in `ui.ts`. */}
+            <div class="game-stat game-stat--achv">
+              <p class="label game-stat__head">
+                <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['crown']} />
+                <span>Achievements</span>
+              </p>
+              <p class="game-stat__value" id="stat-achievement-mult">+0%</p>
+            </div>
+
+            {/* ------------------------------------------------------------
+                The wallet: the two CURRENCIES on one line.
+
+                They are one row rather than two cells in the pair grid above,
+                because they are the same KIND of thing -- stocks you hold and
+                spend, not rates that drift on every tick -- and because they
+                are mechanically joined: cores multiply what held shards
+                produce (`PRESTIGE.bonusPerCore`), so a player comparing them
+                is reading one fact rather than two.
+
+                The gain badge is filled in by ui.ts whenever the balance
+                rises. Where shards COME FROM is stated once in the Upgrades
+                panel, beside the ladder they buy, rather than twice -- a
+                currency explained in two places is a currency the player has
+                to reconcile.
+                ------------------------------------------------------------ */}
+            <div class="game__stats-wallet">
+              {/* Shards lead: they are the currency the player earns, spends
+                  and watches in the first session, so the wallet opens with
+                  the live one and closes with the permanent one. */}
+              <div class="game-stat game-stat--shards">
+                <p class="label game-stat__head">
+                  <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['shard']} />
+                  <span>Shards</span>
+                </p>
+                <p class="game-stat__value">
+                  <span id="stat-shards">0</span>
+                  <span class="game-stat__gain" id="stat-shards-gain" aria-hidden="true"></span>
+                </p>
+                {/* What the held balance is PRODUCING, as a multiplier. The
+                    reserve is the one bonus whose value cannot be read off the
+                    number it comes from, so it is stated here rather than left
+                    to be inferred from the multiplier. Written by ui.ts. */}
+                <p class="game-stat__note" id="stat-shards-note">+1% per shard</p>
+              </div>
+
+              {/* Cores are the permanent currency, so the chip draws the same
+                  glyph in the same hue that they carry everywhere else, and
+                  states what they GIVE rather than only how many are held.
+                  The note is written by ui.ts because its value changes on
+                  every Reboot. */}
+              <div class="game-stat game-stat--cores">
+                <p class="label game-stat__head">
+                  <svg class="game-stat__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['cpu']} />
+                  <span>Cores</span>
+                </p>
+                <p class="game-stat__value" id="stat-cores">0</p>
+                {/* What a core is worth. It multiplies what held shards produce,
+                    so this is written by ui.ts from `PRESTIGE.bonusPerCore` and
+                    the live balance rather than hard-coded here. With no shards
+                    held it reads "needs shards" rather than a bonus that does
+                    not exist. */}
+                <p class="game-stat__note" id="stat-cores-note">+{corePct}% per core</p>
+              </div>
+            </div>
+          </div>
+
+          {/* --------------------------------------------------------------
+              The breakdown: what a hovered total is MADE OF.
+
+              A total like `Multiplier 5.94x` is a product of six terms and
+              there is nowhere on screen to read them, so the number is a fact
+              with no explanation. Hovering a chip swaps this panel to that
+              chip's terms.
+
+              ONE SHARED PANEL rather than one per chip, for two reasons. It
+              spans the grid (`grid-column: 1 / -1`), so it can never overflow
+              horizontally at any width -- a popover anchored to a narrow chip
+              would have to overhang its own track at 320px, which is the exact
+              case the zero-overflow invariant exists for. And a single panel
+              means a single place for the rows to be laid out, so every
+              breakdown is the same shape.
+
+              Written by ui.ts. The rows are numbers and therefore JavaScript's
+              to produce, the same as every other readout here.
+
+              NOT animated and not keyboard-reachable, both deliberately. The
+              whole stats block is `aria-hidden` and mirrored by the throttled
+              live summary, so a focusable trigger inside it would be focusable
+              content in a hidden subtree -- an accessibility fault worse than
+              the one it fixed. So this is a POINTER affordance, and it prints
+              hidden: see `print.css`.
+              -------------------------------------------------------------- */}
+          <div class="game__breakdown" id="stat-breakdown" hidden>
+            <p class="label game__breakdown-title" id="stat-breakdown-title"></p>
+            <dl class="game__breakdown-rows" id="stat-breakdown-rows"></dl>
+          </div>
+        </div>
+
+        {/* ----------------------------------------------------------------
+            Primary action: deploy.
+            ---------------------------------------------------------------- */}
+        <button class="game__deploy" type="button" id="deploy">
+          <span class="game__deploy-row">
+            <svg class="game__deploy-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false" set:html={GLYPH_MARKUP['deploy']} />
+            <span class="game__deploy-label">Deploy</span>
+          </span>
+          <span class="game__deploy-value">
+            <Concept id="compute" size={14} textId="deploy-value" text="+1 compute" />
+          </span>
+          {/*
+            Where the floating "+N" is spawned, one per click.
+
+            Inside the button so it can be positioned against it and travel
+            without moving anything, and `aria-hidden` because the compute gain
+            is already announced on the live region -- a screen reader should
+            not hear the same figure twice.
+          */}
+          <span class="game__deploy-floats" id="deploy-floats" aria-hidden="true"></span>
+        </button>
+
+        {/* ----------------------------------------------------------------
+            Active abilities. Built by ui.ts from the ABILITIES table, so a
+            newly unlocked ability appears without touching this markup.
+            ---------------------------------------------------------------- */}
+        <div class="abilities" id="abilities"></div>
+
+        {/* ----------------------------------------------------------------
+            Purchase quantity. A toggle group, so each button reports its own
+            pressed state to assistive technology.
+            ---------------------------------------------------------------- */}
+        <div class="game__qty" role="group" aria-label="Buy quantity">
+          <span class="label game__qty-label">Buy</span>
+          <button class="game__qty-btn" type="button" data-qty="1" aria-pressed="true">x1</button>
+          <button class="game__qty-btn" type="button" data-qty="10" aria-pressed="false">x10</button>
+          <button class="game__qty-btn" type="button" data-qty="max" aria-pressed="false">Max</button>
+        </div>
+
+        {/* ----------------------------------------------------------------
+            Panels.
+
+            One tab is shown at a time. Every panel stays in the DOM and is
+            toggled with `hidden`, so ui.ts can keep its row references and
+            update them in place rather than rebuilding on each switch.
+            ---------------------------------------------------------------- */}
+        <div class="game__tabs" role="tablist" aria-label="Game panels">
+          <button class="game-tab" type="button" role="tab" id="tab-services" aria-controls="panel-services" aria-selected="true" tabindex="0" data-tab="services">
+            <svg class="game-tab__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="7" height="7" /><rect x="13.5" y="3.5" width="7" height="7" /><rect x="3.5" y="13.5" width="7" height="7" /><rect x="13.5" y="13.5" width="7" height="7" /></svg>
+            <span class="game-tab__label">Services</span>
+            <span class="game-tab__badge" id="tab-badge-services" hidden></span>
+          </button>
+          <button class="game-tab" type="button" role="tab" id="tab-upgrades" aria-controls="panel-upgrades" aria-selected="false" tabindex="-1" data-tab="upgrades">
+            <svg class="game-tab__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3.5" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" /><path d="M5.4 5.4l2.1 2.1M16.5 16.5l2.1 2.1M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1" /></svg>
+            <span class="game-tab__label">Upgrades</span>
+            <span class="game-tab__badge" id="tab-badge-upgrades" hidden></span>
+          </button>
+          <button class="game-tab" type="button" role="tab" id="tab-contracts" aria-controls="panel-contracts" aria-selected="false" tabindex="-1" data-tab="contracts">
+            {/* Read from GLYPH_MARKUP rather than inlining the path data: this
+                glyph is the contract concept's identity, and a second hand-
+                copied version is exactly how the tab and a badge drift apart. */}
+            <svg class="game-tab__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false" set:html={GLYPH_MARKUP['ledger']} />
+            <span class="game-tab__label">Contracts</span>
+            <span class="game-tab__badge" id="tab-badge-contracts" hidden></span>
+          </button>
+          <button class="game-tab" type="button" role="tab" id="tab-achievements" aria-controls="panel-achievements" aria-selected="false" tabindex="-1" data-tab="achievements">
+            <svg class="game-tab__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false"><path d="M3.5 8 7 12l5-7 5 7 3.5-4v10.5h-17z" /></svg>
+            <span class="game-tab__label">Achievements</span>
+            <span class="game-tab__badge" id="tab-badge-achievements" hidden></span>
+          </button>
+          <button class="game-tab" type="button" role="tab" id="tab-reboot" aria-controls="panel-reboot" aria-selected="false" tabindex="-1" data-tab="reboot">
+            {/* The `reboots` concept's glyph: the same shield the panel's own
+                "Reboots" figure wears. */}
+            <svg class="game-tab__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false" set:html={GLYPH_MARKUP['shield']} />
+            <span class="game-tab__label">Reboot</span>
+            <span class="game-tab__badge" id="tab-badge-reboot" hidden></span>
+          </button>
+        </div>
+
+        <div class="game__panels">
+        {/* ----------------------------------------------------------------
+            Services
+            ---------------------------------------------------------------- */}
+        <section class="game__panel" id="panel-services" role="tabpanel" aria-labelledby="tab-services" tabindex="0">
+          <div class="game__section-head">
+            <h2 class="game__section-title" id="services-title">Services</h2>
+          </div>
+          <div class="game__panel-stats">
+            <p class="game__panel-stat" id="services-total">0 deployed</p>
+          </div>
+          <p class="game__hint">
+            Every {MILESTONE.step} units a tier banks another milestone, which
+            multiplies <em>that tier's own</em> output again -- so a deep tier
+            compounds on itself and depth pays as well as breadth. Each tier
+            also gives +{synergyPct}% to the tier below it, up to
+            +{Math.round(SYNERGY.max * 100)}%. Upgrades for a tier appear in
+            its own card once they unlock.
+          </p>
+          <ul class="services" id="services"></ul>
+        </section>
+
+        {/* ----------------------------------------------------------------
+            Upgrades
+            ---------------------------------------------------------------- */}
+        <section class="game__panel" id="panel-upgrades" role="tabpanel" aria-labelledby="tab-upgrades" tabindex="0" hidden>
+          <div class="game__section-head">
+            <h2 class="game__section-title" id="upgrades-title">Upgrades</h2>
+          </div>
+          {/* The shard balance lives here because this is the one panel that
+              spends shards: keeping the wallet beside the ladder it buys is
+              what makes the price of the next upgrade answerable at a glance. */}
+          <div class="game__panel-stats">
+            <p class="game__panel-stat" id="upgrades-count">0 / 0 owned</p>
+            {/* A shard figure carries the shard glyph and hue wherever it
+                appears, so the ladder's wallet reads as the same currency as
+                the HUD balance and every price tag. */}
+            <p class="game__panel-stat">
+              <Concept id="shards" size={13} textId="upgrades-shards" text="0 shards" />
+            </p>
+          </div>
+          <p class="game__hint">
+            One-time purchases that are not tied to a single service, grouped
+            by what they touch. Shards are earned from completed contracts
+            and spent on upgrades. The badge beside each name is the actual
+            effect, so two upgrades can be compared at a glance. The count
+            above covers these shop upgrades only — each service has its own
+            four, listed in that service's card on the Services tab.
+          </p>
+          <div class="upgrade-groups" id="upgrades"></div>
+          <p class="game__empty" id="upgrades-empty" hidden>
+            Nothing available yet. Deploy a few services and check back.
+          </p>
+        </section>
+
+        {/* ----------------------------------------------------------------
+            Contracts
+            ---------------------------------------------------------------- */}
+        <section class="game__panel" id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts" tabindex="0" hidden>
+          <div class="game__section-head">
+            <h2 class="game__section-title" id="contracts-title">Contracts</h2>
+          </div>
+          <div class="game__panel-stats">
+            <p class="game__panel-stat" id="contracts-count">0 completed</p>
+          </div>
+          <p class="game__hint">
+            Standing objectives. Complete one to claim a lump sum of compute,
+            scaled to your current output, and a fresh contract is issued in
+            its place.
+          </p>
+          <ul class="contracts" id="contracts"></ul>
+        </section>
+
+        {/* ----------------------------------------------------------------
+            Achievements
+            ---------------------------------------------------------------- */}
+        <section class="game__panel" id="panel-achievements" role="tabpanel" aria-labelledby="tab-achievements" tabindex="0" hidden>
+          <div class="game__section-head">
+            <h2 class="game__section-title">Achievements</h2>
+          </div>
+          <div class="game__panel-stats">
+            <p class="game__panel-stat" id="achievements-count">0 / 0</p>
+            <p class="game__panel-stat" id="achievements-tiers"></p>
+          </div>
+          <p class="game__hint">
+            Every unlock grants permanent bonuses, and the later ones hand over
+            a brand new active ability. Cards are grouped by theme; the left
+            rail, the medallion and the label all spell out how rare each one
+            is, so nothing depends on colour alone.
+          </p>
+          <div class="achievement-groups" id="achievements"></div>
+        </section>
+
+        {/* ----------------------------------------------------------------
+            Reboot: bank permanent cores, plus the save controls. The tab and
+            the panel heading say the same word, because the tab is named for
+            the ACTION it opens rather than for the pillar it belongs to.
+            ---------------------------------------------------------------- */}
+        <section class="game__panel" id="panel-reboot" role="tabpanel" aria-labelledby="tab-reboot" tabindex="0" hidden>
+          <div class="game__section-head">
+            <h2 class="game__section-title" id="reboot-title">Reboot</h2>
+            {/* Readiness as a word, so the state never rests on the accent
+                tint alone. Hidden until a Reboot would actually pay out. */}
+            <p class="reboot__ready" id="reboot-ready" hidden>Ready</p>
+          </div>
+
+          <div class="reboot" id="reboot-panel">
+            <p class="reboot__text">
+              Reboot resets compute, services, upgrades and contracts for this
+              run. Cores, achievements, upgrades, shards and lifetime totals
+              are kept. Each core multiplies what your unspent shards produce.
+            </p>
+
+            <div class="reboot__facts">
+              <div class="reboot__fact reboot__fact--cores">
+                <p class="label reboot__fact-label">
+                  <svg class="reboot__fact-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['cpu']} />
+                  <span>Cores held</span>
+                </p>
+                <p class="reboot__fact-value reboot__fact-value--cores" id="reboot-current">0</p>
+                {/* What those cores are currently worth, so the currency is
+                    never a bare number. Filled in by ui.ts. */}
+                <p class="reboot__fact-note" id="reboot-current-note">+5% per core</p>
+              </div>
+              <div class="reboot__fact reboot__fact--cores">
+                <p class="label reboot__fact-label">
+                  <svg class="reboot__fact-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['cpu']} />
+                  <span>On reboot</span>
+                </p>
+                <p class="reboot__fact-value reboot__fact-value--cores" id="reboot-gain">0</p>
+                <p class="reboot__fact-note" id="reboot-gain-note">+5% per core</p>
+              </div>
+              {/* The compute the NEXT core starts at, solved from the core
+                  curve rather than the raw gate. The 2nd core needs 4x the
+                  threshold and the 10th needs 100x, so showing the gate here
+                  would have been a constant that never moved.
+
+                  A bolt, not a processor: the glyph marks what the NUMBER is,
+                  and this figure is an amount of compute that happens to be a
+                  threshold. The caption above it already says "core". */}
+              <div class="reboot__fact reboot__fact--compute">
+                <p class="label reboot__fact-label">
+                  <svg class="reboot__fact-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['bolt']} />
+                  <span>Next core at</span>
+                </p>
+                <p class="reboot__fact-value" id="reboot-next">0</p>
+              </div>
+              <div class="reboot__fact reboot__fact--reboots">
+                <p class="label reboot__fact-label">
+                  <svg class="reboot__fact-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" set:html={GLYPH_MARKUP['shield']} />
+                  <span>Reboots</span>
+                </p>
+                <p class="reboot__fact-value" id="reboot-count">0</p>
+              </div>
+            </div>
+
+            {/* How far this run is from the next core. The numeric label
+                states the same value, so the rule is reinforcement rather
+                than the only signal. */}
+            <div class="reboot__progress">
+              <p class="reboot__progress-label" id="reboot-progress">
+                0% of the way to the first core
+              </p>
+              <span class="reboot__track">
+                <span class="reboot__bar" id="reboot-bar"></span>
+              </span>
+            </div>
+
+            {/* A row of its own, aligned to the end of the card: the action
+                belongs to the progress rule above it, not to the two-column
+                sidebar a centred button would imply. `ui.ts` rewrites the
+                label with the core count once a Reboot is worth anything. */}
+            <div class="reboot__actions">
+              <button class="game-btn game-btn--accent" type="button" id="reboot-button" disabled>
+                Reboot
+              </button>
+            </div>
+          </div>
+
+          <div class="savebar">
+            <p class="savebar__text" id="save-note">
+              Progress is saved in this browser only. Nothing is sent anywhere.
+            </p>
+            <div class="savebar__actions">
+              <button class="game-btn" type="button" id="save-now">Save now</button>
+              <button class="game-btn game-btn--danger" type="button" id="reset">
+                Reset progress
+              </button>
+            </div>
+          </div>
+        </section>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<script>
+  import { initGame } from '../game/ui';
+
+  initGame();
+</script>

@@ -1,0 +1,116 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow the workflow to publish to Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Resolve site URL and base path
+        env:
+          # Optional overrides. Set these as repository variables to force a
+          # value; otherwise they are derived from the repository.
+          PREFERRED_SITE: ${{ vars.SITE_URL }}
+          PREFERRED_BASE: ${{ vars.BASE_PATH }}
+        run: |
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+
+          SITE="$PREFERRED_SITE"
+          BASE="$PREFERRED_BASE"
+
+          # Default to the project's GitHub Pages origin.
+          [ -n "$SITE" ] || SITE="https://${OWNER}.github.io"
+
+          # A <user>.github.io repository is served from the domain root;
+          # every other repository is served from a subpath.
+          if [ -z "$BASE" ]; then
+            if [ "$REPO" = "${OWNER}.github.io" ]; then
+              BASE="/"
+            else
+              BASE="/${REPO}"
+            fi
+          fi
+
+          {
+            echo "SITE_URL=${SITE}"
+            echo "BASE_PATH=${BASE}"
+          } >> "$GITHUB_ENV"
+
+          echo "Building for ${SITE} with base path ${BASE}"
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      # The economy checkers. `check:ladder` is plain node and deterministic, so
+      # it is a required step: it asserts the upgrade ladder's shape (64 rungs,
+      # contiguous, 32 distinct per-tier mechanisms, eight capstones), both price
+      # tables, and the pace in HOURS. That last one is the assertion that used
+      # to be a rubber stamp, so it is exactly the one worth running on every
+      # push. It is fast enough to sit in the same job as the build.
+      #
+      # `check:progression` is deliberately NOT here yet: it runs eight full 24h
+      # engine simulations and its own report documents a chaotic spread across
+      # seeds. It is run by hand as the pacing authority. Wire it in as a
+      # non-blocking job once the reference rate has been re-derived against a
+      # stable measurement.
+      - name: Upgrade ladder and pacing
+        run: npm run check:ladder
+
+      - name: Build
+        run: npm run build
+
+      # Pages must be switched on ONCE for the repository before this step can
+      # succeed: Settings -> Pages -> Source: GitHub Actions. While it is off,
+      # this step fails with "Get Pages site failed", which skips the upload and
+      # leaves the site 404ing -- and the build and type-check steps that ran
+      # before it are not the problem.
+      #
+      # This action has an `enablement: true` input that turns Pages on from
+      # the workflow, but it requires a token OTHER than GITHUB_TOKEN (a PAT
+      # with Pages write, or a GitHub App with administration:write and
+      # pages:write), so it cannot be used here.
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

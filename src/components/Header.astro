@@ -1,0 +1,117 @@
+---
+/**
+ * A single optional link back to the CV.
+ *
+ * Left undefined on purpose: the CV is not deployed yet, and this project is
+ * being shipped on its own first. Setting CV_URL renders the link; leaving it
+ * unset renders nothing at all, so there is never a dead link here.
+ *
+ * When the CV is live, set it to the deployed origin, e.g.
+ *   const CV_URL = 'https://tanakornon.github.io/cv/';
+ */
+const CV_URL: string | undefined = undefined;
+---
+
+<header class="site-head">
+  <div class="container site-head__inner">
+    <a class="site-head__brand" href="#main">
+      <span class="site-head__mark" aria-hidden="true">DK</span>
+      <span class="site-head__name">Deploykorn</span>
+    </a>
+
+    <nav aria-label="Primary">
+      <ul class="site-nav">
+        <li>
+          {CV_URL ? <a class="site-nav__link" href={CV_URL}>CV</a> : null}
+        </li>
+        <li>
+          <a class="site-nav__link" href="#save-note">Save</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-head {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-nav);
+    background-color: var(--bg);
+    border-bottom: var(--hairline) solid var(--rule);
+  }
+
+  .site-head__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    min-height: var(--nav-height);
+  }
+
+  .site-head__brand {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    flex: none;
+    text-decoration: none;
+    transition: color var(--dur) var(--ease);
+  }
+
+  .site-head__brand:hover,
+  .site-head__brand:focus-visible {
+    color: var(--accent);
+  }
+
+  .site-head__mark {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--ls-label);
+    color: var(--accent);
+  }
+
+  .site-head__name {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    letter-spacing: -0.01em;
+    color: var(--fg);
+    white-space: nowrap;
+  }
+
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: clamp(var(--space-sm), 2.2vw, var(--space-xl));
+    min-width: 0;
+  }
+
+  /* An empty <li> (no CV link configured) must not leave a gap behind. */
+  .site-nav li:empty {
+    display: none;
+  }
+
+  .site-nav__link {
+    display: inline-block;
+    padding-bottom: var(--space-2xs);
+    border-bottom: var(--hairline) solid transparent;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--ls-label);
+    line-height: 1.2;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--fg-muted);
+    transition:
+      color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease);
+  }
+
+  .site-nav__link:hover,
+  .site-nav__link:focus-visible {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+</style>

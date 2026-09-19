@@ -1,0 +1,63 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+
+import '@fontsource-variable/inter-tight';
+import '@fontsource-variable/jetbrains-mono';
+
+import '../styles/tokens.css';
+import '../styles/global.css';
+import '../styles/game.css';
+import '../styles/print.css';
+
+import { withBase } from '../utils/url';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+
+/* Enable a large social card automatically once a 1200x630 image exists at
+   public/og.png. Nothing is emitted while that file is absent. */
+const ogImagePath = path.join(process.cwd(), 'public', 'og.png');
+const ogImage = fs.existsSync(ogImagePath)
+  ? new URL(withBase('/og.png'), Astro.site).href
+  : undefined;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <meta name="theme-color" content="#08090a" />
+
+    <!-- Social sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot />
+  </body>
+</html>

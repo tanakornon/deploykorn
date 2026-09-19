@@ -1,0 +1,121 @@
+/* ==========================================================================
+   Design tokens
+   Single source of truth for colour, type, spacing and borders.
+   Change values here to re-skin the whole site.
+   ========================================================================== */
+
+:root {
+  /* ---------------------------------------------------------------------
+     Colour
+     Near-black background, off-white primary text, muted gray secondary
+     text, and exactly one accent.
+     --------------------------------------------------------------------- */
+
+  --bg: #08090a;
+  --bg-sunk: #050607;
+  --bg-raised: #0e1011;
+
+  --fg: #f1f2ee;          /* primary text          ~17.0:1 on --bg */
+  --fg-muted: #93978f;    /* secondary text         ~7.2:1 on --bg */
+  --fg-faint: #63665f;    /* decorative / meta only ~3.6:1 on --bg */
+
+  --accent: #2dd4bf;      /* the single accent      ~10.6:1 on --bg */
+  --accent-ink: #04120f;  /* text on top of accent  ~11.9:1 on --accent */
+  --accent-soft: rgba(45, 212, 191, 0.28);
+
+  /* Hairlines. Kept as explicit tokens so "1px" never drifts. */
+  --rule: rgba(241, 242, 238, 0.13);
+  --rule-strong: rgba(241, 242, 238, 0.28);
+  --rule-accent: var(--accent-soft);
+
+  --hairline: 1px;
+  --hairline-accent: 2px;
+
+  /* ---------------------------------------------------------------------
+     Typography
+     --------------------------------------------------------------------- */
+
+  --font-sans: 'Inter Tight Variable', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo,
+    Consolas, 'Liberation Mono', monospace;
+
+  /* Fluid scale. Body text stays readable; only headings get large. */
+  --fs-display: clamp(2.5rem, 1.5rem + 5.2vw, 5.75rem);
+  --fs-h2: clamp(1.75rem, 1.25rem + 2.2vw, 3.25rem);
+  --fs-h3: clamp(1.125rem, 0.98rem + 0.6vw, 1.5rem);
+  --fs-h4: clamp(1rem, 0.94rem + 0.28vw, 1.125rem);
+  --fs-lead: clamp(1.0625rem, 0.98rem + 0.5vw, 1.375rem);
+  --fs-body: clamp(0.9375rem, 0.9rem + 0.22vw, 1.0625rem);
+  --fs-small: 0.875rem;
+  --fs-label: 0.6875rem;
+
+  --lh-tight: 1.04;
+  --lh-snug: 1.2;
+  --lh-body: 1.65;
+
+  --ls-display: -0.03em;
+  --ls-heading: -0.02em;
+  --ls-label: 0.16em;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ---------------------------------------------------------------------
+     Space
+     --------------------------------------------------------------------- */
+
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+
+  /* ---------------------------------------------------------------------
+     Layout
+     --------------------------------------------------------------------- */
+
+  --container-max: 1240px;
+  --container-narrow: 46rem;
+  --gutter: clamp(1.25rem, 0.6rem + 2.6vw, 4rem);
+  --section-gap: clamp(3.5rem, 2rem + 6vw, 7.5rem);
+
+  /* Vertical rhythm between the numbered label and its content. */
+  --section-head-gap: clamp(1.5rem, 1rem + 2vw, 3rem);
+
+  --nav-height: 4.25rem;
+  --row-gap: clamp(1.5rem, 1rem + 2vw, 2.75rem);
+
+  /* Left column width for the editorial date/company column. */
+  --meta-col: 11.5rem;
+
+  /* ---------------------------------------------------------------------
+     Motion
+     --------------------------------------------------------------------- */
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+
+  /* ---------------------------------------------------------------------
+     Details
+     --------------------------------------------------------------------- */
+
+  --bracket: 14px;  /* corner bracket arm length */
+  --z-nav: 20;
+  /* Toasts sit above the page and the nav but below the skip link, which must
+     stay reachable over everything. */
+  --z-toast: 60;
+  --z-skip: 100;
+}
+
+/* Dark is the only theme, but declare it so form controls follow suit and
+   the browser paints scrollbars / UI chrome to match. */
+:root {
+  color-scheme: dark;
+}

@@ -1,0 +1,332 @@
+/* ==========================================================================
+   Print stylesheet: a black-on-white record of the current run, with every
+   control removed.
+
+   Panels print in document order, which matches the on-screen tab order. That
+   order is set in `state.ts` (TAB_IDS) and mirrored by the markup.
+
+   NOTE ON !important
+   Astro scopes component styles as `.class[data-astro-cid-xxxx]`, which
+   outranks a plain `.class` selector no matter how late it appears. Every
+   declaration below that overrides a property set in a component's own
+   <style> block therefore carries !important. Rules targeting the unscoped
+   base layer (tokens.css / global.css) do not need it.
+   ========================================================================== */
+
+@media print {
+  /* ---------------------------------------------------------------------
+     1. Re-skin by overriding the tokens.
+     --------------------------------------------------------------------- */
+
+  :root {
+    --bg: #ffffff;
+    --bg-sunk: #ffffff;
+    --bg-raised: #ffffff;
+
+    --fg: #000000;
+    --fg-muted: #2e2e2e;
+    --fg-faint: #5a5a5a;
+
+    /* A saturated accent is illegible on paper; collapse it to black. */
+    --accent: #000000;
+    --accent-ink: #ffffff;
+    --accent-soft: #999999;
+
+    /*
+       `--ink` is the foreground for a filled accent chip (`.reboot__ready`,
+       which paints `--ok` behind it). It is NOT `--accent-ink`'s job here but
+       it has the same requirement: left at its screen value (#04120f) the
+       chip prints black text on the black it collapses `--ok` to, so the
+       state word disappears entirely. White, like `--accent-ink`.
+    */
+    --ink: #ffffff;
+
+    /* The shards currency. Read directly by `.contract__reward-shards` as
+       well as through `--stat-shards`, so collapsing the stat hue alone
+       leaves contract payouts printing cyan on white. */
+    --shard: #000000;
+
+    --rule: #c8c8c8;
+    --rule-strong: #8c8c8c;
+
+    /* Stat hues collapse to black on paper, exactly like the accent. */
+    --stat-compute: #000000;
+    --stat-rate: #000000;
+    --stat-click: #000000;
+    --stat-cores: #000000;
+    --stat-mult: #000000;
+    --stat-achv: #000000;
+    --stat-shards: #000000;
+    --stat-reboots: #000000;
+    --stat-fleet: #000000;
+    --stat-contract: #000000;
+    --stat-away: #000000;
+
+    /* The tier ramp colours service medallions, output figures and the row
+       rail. Yellow (#facc15) and pink on white are unreadable, so every tier
+       collapses to black. Rows set `--tier: var(--tier-N)`, so overriding the
+       ramp here is enough. */
+    --tier-1: #000000;
+    --tier-2: #000000;
+    --tier-3: #000000;
+    --tier-4: #000000;
+    --tier-5: #000000;
+    --tier-6: #000000;
+    --tier-7: #000000;
+    --tier-8: #000000;
+
+    /*
+       Status and rarity hues are screen-only colour: green on white is weak,
+       and a bronze or gold medallion carries no meaning once the label beside
+       it is the same weight. Collapse them to keep the printout monotone.
+    */
+    --ok: #000000;
+    --warn: #000000;
+    --danger: #000000;
+
+    /* A tinted block on white paper adds nothing, and
+       `print-color-adjust: exact` would otherwise keep it. */
+    --ok-soft: transparent;
+    --warn-soft: transparent;
+
+    --r-bronze: #000000;
+    --r-silver: #000000;
+    --r-gold: #000000;
+    --r-mythic: #000000;
+
+    /* The rarity washes go transparent rather than turning into a grey box. */
+    --r-bronze-soft: transparent;
+    --r-silver-soft: transparent;
+    --r-gold-soft: transparent;
+    --r-mythic-soft: transparent;
+
+    --fs-h2: 17pt;
+    --fs-h3: 12pt;
+    --fs-h4: 10.5pt;
+    --fs-body: 9.75pt;
+    --fs-small: 9pt;
+    --fs-label: 7.5pt;
+
+    --lh-body: 1.45;
+    --gutter: 0;
+  }
+
+  @page {
+    margin: 15mm 14mm;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  /* Force exact colours so the browser does not invert or drop backgrounds. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* ---------------------------------------------------------------------
+     2. Remove screen-only chrome and every control
+     --------------------------------------------------------------------- */
+
+  .site-head,
+  .site-footer,
+  .skip-link,
+  .game__deploy,
+  .game__qty,
+  .game__tabs,
+  .game__banner,
+  .game__status,
+  .game__hint,
+  .savebar,
+  /*
+     Controls only. The ACTION CELLS stay, because they also carry the price
+     chip: `.service__action` holds `.service__cost` beside `.service__buy`,
+     and `.upgrade__action` holds `.upgrade__cost` beside the Buy button. A
+     shard price is a readout, not a control -- hiding the whole cell dropped
+     every price from the printout.
+  */
+  .service__buy,
+  .upgrade__action .game-btn,
+  .reboot__actions,
+  .abilities,
+  /* The stat breakdown is a HOVER affordance, and paper has no pointer. It is
+     also written on hover, so a printed copy would either be empty or show
+     whichever chip the cursor happened to be over -- neither is information. */
+  .game__breakdown,
+  /* A transient notification has no meaning on a printout, and it is
+     `position: fixed`, which would otherwise repeat it on every page. */
+  .toasts {
+    display: none !important;
+  }
+
+  /* Every panel is printed, not just the open one, and the tablist that
+     would switch between them is removed above. Paired with `!important`
+     because `hidden` relies on a `display` declaration from the page. */
+  .game__panel,
+  .game__panel[hidden] {
+    display: block !important;
+    padding-top: 0 !important;
+  }
+
+  .game__panel + .game__panel {
+    margin-top: 1.3rem !important;
+  }
+
+  /* An owned upgrade washes itself in its category colour. On paper that is a
+     grey block behind every bought row, so drop the fill and keep the coloured
+     border and badge as the owned cue. */
+  .upgrade--owned {
+    background-color: transparent !important;
+  }
+
+  /* The same for an unlocked achievement and its ability chip, whose fill is
+     mixed from the rarity colour rather than read from a token. */
+  .achievement:not(.achievement--locked),
+  .achievement__reward--ability {
+    background-color: transparent !important;
+  }
+
+  /* A concept reward chip's fill is mixed from `--concept`, which collapses
+     to black here -- so without this it prints as a grey block behind every
+     unlocked reward that names a currency or a stat. */
+  .achievement:not(.achievement--locked) .achievement__reward--concept {
+    background-color: transparent !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  /* ---------------------------------------------------------------------
+     3. Layout collapses to a single flowing column
+     --------------------------------------------------------------------- */
+
+  .container {
+    max-width: none;
+    padding-inline: 0;
+  }
+
+  .game {
+    padding-block: 0 !important;
+  }
+
+  .game__stats {
+    grid-template-columns: minmax(0, 1fr) !important;
+    margin-top: 0.9rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .game-stat--hero {
+    padding: 0.5rem 0 !important;
+    border: 0 !important;
+    border-bottom: var(--hairline) solid var(--rule) !important;
+  }
+
+  /* A 3rem hero number would eat a third of the page for one value. */
+  .game-stat--hero .game-stat__value {
+    font-size: 14pt !important;
+  }
+
+  .game__stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    border-block: 0 !important;
+    border-left: 0 !important;
+    padding-block: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  .game__section-head {
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Wide multi-column grids become one column so nothing is cramped. */
+  .contracts,
+  .achievements {
+    grid-template-columns: minmax(0, 1fr) !important;
+    border-bottom: none !important;
+  }
+
+  /*
+     The action cells now hold ONLY a readout (the price chip, or an upgrade's
+     "Owned" label), so they shrink to the content rather than reserving a
+     fixed control column. `auto` is what does that.
+  */
+  .service {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+
+  /* ---------------------------------------------------------------------
+     4. Page-break control
+     --------------------------------------------------------------------- */
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  .game__section-head {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  .service,
+  .contract,
+  .upgrade,
+  .achievement,
+  .reboot {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ---------------------------------------------------------------------
+     5. Detail tuning for paper
+     --------------------------------------------------------------------- */
+
+  .label,
+  .mono,
+  .game__panel-stat {
+    letter-spacing: 0.06em;
+  }
+
+  /* Line icons and progress rules print as plain black. */
+  .glyph,
+  .service__icon {
+    color: #000000 !important;
+  }
+
+  .achievement__bar,
+  .contract__bar {
+    background-color: #000000 !important;
+  }
+
+  .achievement--locked .achievement__name,
+  .achievement__blurb,
+  .contract__blurb {
+    color: #4a4a4a !important;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* Printing must never introduce horizontal overflow. */
+  body,
+  .container {
+    overflow: visible !important;
+  }
+}

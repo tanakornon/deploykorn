@@ -1,0 +1,49 @@
+---
+/* ==========================================================================
+   A named quantity, with its concept glyph and hue.
+
+   Used wherever a number is attributed to a currency or a stat, so that
+   "250 shards" in a cost line and "320 shards" in the HUD are visibly the
+   same thing. See `concepts.ts` for why the identity is centralised.
+
+   The glyph is decorative -- the adjacent text already names the concept --
+   so it is aria-hidden. Nothing here depends on colour to be understood.
+
+   Two ways to give it content: a `<slot />` for arbitrary markup, or the
+   `textId` prop when the figure is repainted in place by `ui.ts` and needs a
+   stable element to write into.
+   ========================================================================== */
+import { CONCEPTS, type ConceptId } from '../game/concepts';
+import { GLYPH_MARKUP } from '../game/icons';
+
+interface Props {
+  id: ConceptId;
+  /** Rendered size in px. Chips are smaller than stat readouts. */
+  size?: number;
+  /** Sets an id on the text span, for a value `ui.ts` updates. */
+  textId?: string;
+  /** Initial text, used with `textId`. */
+  text?: string;
+}
+
+const { id, size = 14, textId, text = '' } = Astro.props;
+const concept = CONCEPTS[id];
+---
+
+<span class={`concept concept--${id}`}>
+  <svg
+    class="concept__icon"
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    aria-hidden="true"
+    focusable="false"
+    set:html={GLYPH_MARKUP[concept.icon]}
+  />
+  <span class="concept__text" id={textId}><slot />{text}</span>
+</span>
